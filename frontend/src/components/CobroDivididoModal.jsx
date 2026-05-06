@@ -4,6 +4,8 @@ import { X, Plus, Trash2 } from 'lucide-react';
 export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, metodosPago }) {
   const [descuento, setDescuento] = useState(0);
   const [pagos, setPagos] = useState([{ id: 1, metodo: metodosPago[0]?.nombre || '', monto: 0 }]);
+  const [procesando, setProcesando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
 
   const totalPagosConRecargo = pagos.reduce((sum, pago) => {
     const metodo = metodosPago.find((m) => m.nombre === pago.metodo);
@@ -21,6 +23,8 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
     if (isOpen) {
       setDescuento(0);
       setPagos([{ id: 1, metodo: metodosPago[0]?.nombre || '', monto: 0 }]);
+      setProcesando(false);
+      setErrorMsg(null);
     }
   }, [isOpen, metodosPago]);
 
@@ -46,9 +50,6 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
   const actualizarMetodo = (id, metodo) => {
     setPagos(pagos.map((p) => (p.id === id ? { ...p, metodo } : p)));
   };
-
-  const [procesando, setProcesando] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
 
   const handleConfirmar = async () => {
     if (!montoCubierto) return;

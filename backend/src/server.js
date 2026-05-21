@@ -26,7 +26,8 @@ app.use((_req, res) => {
 app.use((err, _req, res, _next) => {
   console.error(err);
   const message = err instanceof Error ? err.message : 'Error interno';
-  res.status(500).json({ error: message });
+  const status = err.status ?? 500;
+  res.status(status).json({ error: message });
 });
 
 const port = Number(process.env.PORT ?? 4000);

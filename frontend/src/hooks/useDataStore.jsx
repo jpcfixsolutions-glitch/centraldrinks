@@ -26,12 +26,18 @@ export function useDataStore({ enabled }) {
   const [gastos, setGastos] = useState([]);
   const [botellasBarra, setBotellasBarra] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [cajaActual, setCajaActual] = useState({ abierta: false, sesion: null, resumen: null });
+
+  const recargarCajaActual = useCallback(async () => {
+    const data = await cajasApi.actual();
+    setCajaActual(data);
+  }, []);
 
   const recargarTodo = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [c, m, p, ms, v, cj, gf, g, bb, al] = await Promise.all([
+      const [c, m, p, ms, v, cj, gf, g, bb, al, caja] = await Promise.all([
         categoriasApi.listar(),
         metodosPagoApi.listar(),
         productosApi.listar(),
@@ -42,6 +48,7 @@ export function useDataStore({ enabled }) {
         gastosApi.listar().catch(() => []),
         botellasBarraApi.listar().catch(() => []),
         auditLogsApi.listar().catch(() => []),
+        cajasApi.actual().catch(() => ({ abierta: false, sesion: null, resumen: null })),
       ]);
       setCategorias(c);
       setMetodosPago(m);
@@ -53,6 +60,7 @@ export function useDataStore({ enabled }) {
       setGastos(g);
       setBotellasBarra(bb);
       setAuditLogs(al);
+      setCajaActual(caja);
     } catch (err) {
       setError(err.message || 'Error cargando datos');
     } finally {
@@ -180,17 +188,26 @@ export function useDataStore({ enabled }) {
   const registrarVenta = useCallback(
     async (data) => {
       const venta = await ventasApi.crear(data);
-      await Promise.all([recargarVentas(), recargarProductos()]);
+      await Promise.all([recargarVentas(), recargarProductos(), recargarCajaActual()]);
       return venta;
     },
-    [recargarProductos, recargarVentas]
+    [recargarCajaActual, recargarProductos, recargarVentas]
+  );
+
+  const abrirCaja = useCallback(
+    async (efectivoInicial) => {
+      const result = await cajasApi.abrir(efectivoInicial);
+      setCajaActual({ abierta: true, sesion: result.sesion, resumen: result.resumen });
+      return result;
+    },
+    []
   );
 
   const cerrarCajaActual = useCallback(async () => {
     const cierre = await cajasApi.cerrar();
-    await Promise.all([recargarCierres(), recargarVentas()]);
+    await Promise.all([recargarCierres(), recargarVentas(), recargarCajaActual()]);
     return cierre;
-  }, [recargarCierres, recargarVentas]);
+  }, [recargarCajaActual, recargarCierres, recargarVentas]);
 
   const crearGastoFijo = useCallback(
     async (data) => {
@@ -219,9 +236,10 @@ export function useDataStore({ enabled }) {
     async (data) => {
       const creado = await gastosApi.crear(data);
       setGastos((prev) => [...prev, creado]);
+      await recargarCajaActual();
       return creado;
     },
-    []
+    [recargarCajaActual]
   );
 
   const crearBotellaBarra = useCallback(
@@ -260,6 +278,9 @@ export function useDataStore({ enabled }) {
     gastos,
     botellasBarra,
     auditLogs,
+    cajaActual,
+    recargarCajaActual,
+    abrirCaja,
     recargarTodo,
     recargarVentas,
     recargarCierres,

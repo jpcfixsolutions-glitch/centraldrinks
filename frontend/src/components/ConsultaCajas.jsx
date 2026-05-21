@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, Eye, DollarSign, Receipt, Lock } from 'lucide-react';
+import { ArrowLeft, Calendar, Eye, DollarSign, Receipt, Lock, Wallet, CreditCard } from 'lucide-react';
 import { cajasApi } from '../lib/api.js';
 
-export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja }) {
+export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja }) {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [empleadoFiltro, setEmpleadoFiltro] = useState('todos');
   const [cajaSeleccionada, setCajaSeleccionada] = useState(null);
@@ -32,8 +32,17 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
       hour12: false,
     });
 
+  const resumen = cajaActual?.resumen;
+
   const handleCerrarCaja = async () => {
-    if (!confirm(`¿Cerrar caja con ${ventasAbiertas.length} ventas pendientes ($${cajaActualTotal.toLocaleString()})?`))
+    const msgResumen = resumen
+      ? `\n\nArqueo esperado:\n• Efectivo en caja: $${resumen.efectivoEsperado.toLocaleString()}\n• Virtual/Transferencias: $${resumen.ingresoVirtual.toLocaleString()}`
+      : '';
+    if (
+      !confirm(
+        `¿Cerrar caja con ${ventasAbiertas.length} ventas ($${cajaActualTotal.toLocaleString()})?${msgResumen}\n\nContá el efectivo y verificá que coincida.`
+      )
+    )
       return;
     setErrorMsg(null);
     setProcesando(true);
@@ -62,7 +71,7 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
             </div>
             <button
               onClick={handleCerrarCaja}
-              disabled={procesando || ventasAbiertas.length === 0}
+              disabled={procesando || !cajaActual?.abierta}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
             >
               <Lock className="w-5 h-5" />
@@ -77,6 +86,45 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
         </header>
 
         <div className="flex-1 p-8 overflow-auto">
+          {cajaActual?.abierta && resumen && (
+            <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-bold text-green-500 mb-4">Caja abierta — Arqueo actual</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800">
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+                    <Wallet className="w-4 h-4 text-emerald-500" />
+                    Efectivo esperado
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-500">
+                    ${resumen.efectivoEsperado.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Inicial ${(cajaActual.sesion?.efectivoInicial || 0).toLocaleString()} + ventas $
+                    {resumen.ingresoEfectivo.toLocaleString()}
+                    {resumen.egresoEfectivo > 0 && ` − gastos $${resumen.egresoEfectivo.toLocaleString()}`}
+                  </p>
+                </div>
+                <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800">
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+                    <CreditCard className="w-4 h-4 text-blue-500" />
+                    Virtual / Transferencias
+                  </div>
+                  <p className="text-2xl font-bold text-blue-500">
+                    ${resumen.ingresoVirtual.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800">
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+                    <DollarSign className="w-4 h-4 text-red-500" />
+                    Total ventas
+                  </div>
+                  <p className="text-2xl font-bold text-white">${resumen.ingresoTotal.toLocaleString()}</p>
+                  <p className="text-xs text-zinc-500 mt-2">{resumen.cantidadVentas} tickets</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6 mb-6">
             <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">Filtros</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,10 +336,45 @@ function DetalleCajaModal({ cierreId, onClose }) {
                 <p className="text-sm text-zinc-400">Ingreso Total</p>
               </div>
               <p className="text-3xl font-bold text-green-500">
-                ${ventas.reduce((sum, v) => sum + v.total, 0).toLocaleString()}
+                ${(cierre.ingresoTotal ?? ventas.reduce((sum, v) => sum + v.total, 0)).toLocaleString()}
               </p>
             </div>
           </div>
+
+          {(cierre.efectivoInicial > 0 || cierre.ingresoEfectivo > 0) && (
+            <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700 mb-6">
+              <h4 className="font-bold text-white mb-3">Arqueo al cierre</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-zinc-500">Efectivo inicial</p>
+                  <p className="font-medium">${(cierre.efectivoInicial || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-zinc-500">+ Ventas efectivo</p>
+                  <p className="font-medium text-emerald-500">
+                    ${(cierre.ingresoEfectivo || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-zinc-500">Virtual / Transf.</p>
+                  <p className="font-medium text-blue-500">
+                    ${(cierre.ingresoVirtual || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-zinc-500">Efectivo esperado</p>
+                  <p className="font-bold text-emerald-400">
+                    ${(cierre.efectivoEsperado ?? (cierre.efectivoInicial || 0) + (cierre.ingresoEfectivo || 0) - (cierre.egresoEfectivo || 0)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              {(cierre.egresoEfectivo || 0) > 0 && (
+                <p className="text-xs text-red-400 mt-2">
+                  Gastos en efectivo del turno: −${cierre.egresoEfectivo.toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold">
@@ -418,6 +501,20 @@ function DetalleCajaModal({ cierreId, onClose }) {
                           </span>
                         </div>
                       ))}
+                      {venta.descuento > 0 && (
+                        <div className="flex justify-between text-sm text-green-500">
+                          <span>Descuento</span>
+                          <span>-${venta.descuento.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {venta.pagos?.map((p, idx) =>
+                        p.recargo !== 0 ? (
+                          <div key={idx} className="flex justify-between text-sm text-red-400">
+                            <span>Recargo {p.metodoPago}</span>
+                            <span>+${p.recargo.toLocaleString()}</span>
+                          </div>
+                        ) : null
+                      )}
                     </div>
                   </div>
                 ))}

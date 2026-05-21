@@ -102,20 +102,37 @@ export function VentaMesa({ numeroMesa, onVolver, onCerrarMesa, metodosPago, est
     setShowCerrarMesaModal(true);
   };
 
-  const handleConfirmarCerrarMesa = () => {
-    // Crear registro de venta para la caja
+  const handleConfirmarCerrarMesa = (detalles: { pagos: {metodo: string, monto: number}[], descuento: number, totalRecargo: number, totalFinal: number }) => {
+    const productosFinales = carrito.map(p => ({
+      nombre: p.nombre,
+      cantidad: p.cantidad,
+      precio: p.precio
+    }));
+
+    if (detalles.totalRecargo > 0) {
+      productosFinales.push({
+        nombre: `Recargo por método de pago`,
+        cantidad: 1,
+        precio: detalles.totalRecargo
+      });
+    }
+    
+    if (detalles.descuento > 0) {
+      productosFinales.push({
+        nombre: `Descuento aplicado`,
+        cantidad: 1,
+        precio: -detalles.descuento
+      });
+    }
+
     const ventaCaja: CierreCaja = {
       id: `MESA${numeroMesa}_${Date.now()}`,
       hora: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      metodoPago: 'Efectivo', // Se actualizará desde el modal de cobro
-      total: totalMesa,
+      metodoPago: detalles.pagos.map(p => p.metodo).join(' + '),
+      total: detalles.totalFinal,
       tipo: 'mesa',
       numeroMesa: numeroMesa,
-      productos: carrito.map(p => ({
-        nombre: p.nombre,
-        cantidad: p.cantidad,
-        precio: p.precio
-      }))
+      productos: productosFinales
     };
 
     onCerrarMesa(numeroMesa, totalMesa, ventaCaja);

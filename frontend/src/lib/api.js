@@ -98,6 +98,8 @@ export const ventasApi = {
 };
 
 export const cajasApi = {
+  actual: () => apiFetch('/cajas/actual'),
+  abrir: (efectivoInicial) => apiFetch('/cajas/abrir', { method: 'POST', body: { efectivoInicial } }),
   listar: () => apiFetch('/cajas'),
   obtener: (id) => apiFetch(`/cajas/${id}`),
   cerrar: () => apiFetch('/cajas/cerrar', { method: 'POST', body: {} }),

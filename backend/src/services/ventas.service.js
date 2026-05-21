@@ -4,6 +4,7 @@ import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
 import { ventaPagos } from '../models/ventaPagos.model.js';
 import { productos } from '../models/productos.model.js';
+import { idSesionAbierta } from './cierresCaja.service.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -14,10 +15,16 @@ async function itemsPorVentas(ventaIds) {
   return db.select().from(ventaItems).where(inArray(ventaItems.ventaId, ventaIds));
 }
 
+async function pagosPorVentas(ventaIds) {
+  if (ventaIds.length === 0) return [];
+  return db.select().from(ventaPagos).where(inArray(ventaPagos.ventaId, ventaIds));
+}
+
 export async function listar() {
   const lista = await db.select().from(ventas).orderBy(desc(ventas.fecha));
   const ventaIds = lista.map((v) => v.id);
   const items = await itemsPorVentas(ventaIds);
+  const pagos = await pagosPorVentas(ventaIds);
 
   return lista.map((v) => ({
     ...v,
@@ -28,6 +35,13 @@ export async function listar() {
         nombreProducto: i.nombreProducto,
         precio: i.precio,
         cantidad: i.cantidad,
+      })),
+    pagos: pagos
+      .filter((p) => p.ventaId === v.id)
+      .map((p) => ({
+        metodoPago: p.metodoPago,
+        monto: p.monto,
+        recargo: p.recargo,
       })),
   }));
 }
@@ -41,6 +55,13 @@ export async function obtener(id) {
 }
 
 export async function crear(data, usuarioId) {
+  const sesionId = await idSesionAbierta();
+  if (!sesionId) {
+    const err = new Error('No hay caja abierta. Abrí la caja antes de registrar ventas.');
+    err.status = 400;
+    throw err;
+  }
+
   const codigo = generarCodigo(data.tipo);
 
   const [venta] = await db
@@ -53,6 +74,7 @@ export async function crear(data, usuarioId) {
       descuento: data.descuento,
       metodoPago: data.metodoPago,
       usuarioId: usuarioId ?? null,
+      cierreCajaId: sesionId,
     })
     .returning();
 

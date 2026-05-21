@@ -5,9 +5,12 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 
-router.use(requireAuth, requireRole('administrador'));
-router.get('/', asyncHandler(ctrl.listar));
-router.get('/:id', asyncHandler(ctrl.obtener));
-router.post('/cerrar', asyncHandler(ctrl.cerrarCaja));
+router.use(requireAuth);
+
+router.get('/actual', asyncHandler(ctrl.actual));
+router.post('/abrir', requireRole('administrador'), asyncHandler(ctrl.abrir));
+router.post('/cerrar', requireRole('administrador'), asyncHandler(ctrl.cerrarCaja));
+router.get('/', requireRole('administrador'), asyncHandler(ctrl.listar));
+router.get('/:id', requireRole('administrador'), asyncHandler(ctrl.obtener));
 
 export default router;

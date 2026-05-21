@@ -1,11 +1,79 @@
-import { desc, eq, inArray, isNull } from 'drizzle-orm';
+import { desc, eq, inArray, isNull, gte } from 'drizzle-orm';
 import { db } from './db.js';
 import { cierresCaja } from '../models/cierresCaja.model.js';
 import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
+import { ventaPagos } from '../models/ventaPagos.model.js';
+import { gastos } from '../models/gastos.model.js';
+import { calcularResumenDesdeVentas } from './cajaResumen.js';
+
+async function pagosMapPorVentas(ventaIds) {
+  if (ventaIds.length === 0) return new Map();
+  const pagos = await db.select().from(ventaPagos).where(inArray(ventaPagos.ventaId, ventaIds));
+  const map = new Map();
+  for (const p of pagos) {
+    if (!map.has(p.ventaId)) map.set(p.ventaId, []);
+    map.get(p.ventaId).push(p);
+  }
+  return map;
+}
+
+async function gastosDesde(fechaApertura) {
+  if (!fechaApertura) return [];
+  return db.select().from(gastos).where(gte(gastos.fecha, fechaApertura));
+}
+
+export async function obtenerAbierta() {
+  return db.query.cierresCaja.findFirst({ where: eq(cierresCaja.abierta, true) });
+}
+
+export async function abrir(usuario, efectivoInicial) {
+  const existente = await obtenerAbierta();
+  if (existente) {
+    const err = new Error('Ya hay una caja abierta');
+    err.status = 409;
+    throw err;
+  }
+
+  const [sesion] = await db
+    .insert(cierresCaja)
+    .values({
+      usuarioId: usuario.sub,
+      empleado: usuario.username,
+      efectivoInicial,
+      abierta: true,
+    })
+    .returning();
+
+  return sesion;
+}
+
+export async function obtenerResumenActual() {
+  const sesion = await obtenerAbierta();
+  if (!sesion) return null;
+
+  const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
+  const ventaIds = ventasSesion.map((v) => v.id);
+  const pagosMap = await pagosMapPorVentas(ventaIds);
+  const gastosSesion = await gastosDesde(sesion.fechaApertura);
+
+  const resumen = calcularResumenDesdeVentas({
+    efectivoInicial: sesion.efectivoInicial,
+    ventas: ventasSesion,
+    pagosPorVenta: pagosMap,
+    gastos: gastosSesion,
+    fechaApertura: sesion.fechaApertura,
+  });
+
+  return { sesion, resumen };
+}
 
 export async function listar() {
-  return db.select().from(cierresCaja).orderBy(desc(cierresCaja.fechaCierre));
+  return db
+    .select()
+    .from(cierresCaja)
+    .where(eq(cierresCaja.abierta, false))
+    .orderBy(desc(cierresCaja.fechaCierre));
 }
 
 export async function obtener(id) {
@@ -18,39 +86,72 @@ export async function obtener(id) {
     ventaIds.length > 0
       ? await db.select().from(ventaItems).where(inArray(ventaItems.ventaId, ventaIds))
       : [];
+  const pagos =
+    ventaIds.length > 0
+      ? await db.select().from(ventaPagos).where(inArray(ventaPagos.ventaId, ventaIds))
+      : [];
 
   return {
     ...cierre,
+    efectivoEsperado: cierre.efectivoInicial + cierre.ingresoEfectivo - cierre.egresoEfectivo,
     ventas: ventasCierre.map((v) => ({
       ...v,
       productos: items
         .filter((i) => i.ventaId === v.id)
         .map((i) => ({ nombre: i.nombreProducto, cantidad: i.cantidad, precio: i.precio })),
+      pagos: pagos
+        .filter((p) => p.ventaId === v.id)
+        .map((p) => ({ metodoPago: p.metodoPago, monto: p.monto, recargo: p.recargo })),
     })),
   };
 }
 
 export async function cerrar(usuario) {
-  const ventasAbiertas = await db.select().from(ventas).where(isNull(ventas.cierreCajaId));
-  if (ventasAbiertas.length === 0) return null;
-
-  const cantidad = ventasAbiertas.length;
-  const total = ventasAbiertas.reduce((acc, v) => acc + v.total, 0);
-
-  const [cierre] = await db
-    .insert(cierresCaja)
-    .values({
-      usuarioId: usuario.sub,
-      empleado: usuario.username,
-      cantidadVentas: cantidad,
-      ingresoTotal: total,
-    })
-    .returning();
+  const sesion = await obtenerAbierta();
+  if (!sesion) return null;
 
   await db
     .update(ventas)
-    .set({ cierreCajaId: cierre.id })
+    .set({ cierreCajaId: sesion.id })
     .where(isNull(ventas.cierreCajaId));
 
-  return cierre;
+  const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
+  const ventaIds = ventasSesion.map((v) => v.id);
+  const pagosMap = await pagosMapPorVentas(ventaIds);
+  const gastosSesion = await gastosDesde(sesion.fechaApertura);
+
+  const resumen = calcularResumenDesdeVentas({
+    efectivoInicial: sesion.efectivoInicial,
+    ventas: ventasSesion,
+    pagosPorVenta: pagosMap,
+    gastos: gastosSesion,
+    fechaApertura: sesion.fechaApertura,
+  });
+
+  const [cierre] = await db
+    .update(cierresCaja)
+    .set({
+      abierta: false,
+      fechaCierre: new Date().toISOString(),
+      cantidadVentas: resumen.cantidadVentas,
+      ingresoTotal: resumen.ingresoTotal,
+      ingresoEfectivo: resumen.ingresoEfectivo,
+      ingresoVirtual: resumen.ingresoVirtual,
+      egresoEfectivo: resumen.egresoEfectivo,
+      empleado: usuario.username,
+      usuarioId: usuario.sub,
+    })
+    .where(eq(cierresCaja.id, sesion.id))
+    .returning();
+
+  return {
+    ...cierre,
+    efectivoEsperado: resumen.efectivoEsperado,
+    resumen,
+  };
+}
+
+export async function idSesionAbierta() {
+  const sesion = await obtenerAbierta();
+  return sesion?.id ?? null;
 }

@@ -30,8 +30,13 @@ export async function crear(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
 
-  const venta = await ventasService.crear(parsed.data, req.user?.sub);
-  res.status(201).json({ id: venta.id, codigo: venta.codigo, fecha: venta.fecha, cierreCajaId: venta.cierreCajaId });
+  try {
+    const venta = await ventasService.crear(parsed.data, req.user?.sub);
+    res.status(201).json({ id: venta.id, codigo: venta.codigo, fecha: venta.fecha, cierreCajaId: venta.cierreCajaId });
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
+    throw err;
+  }
 }
 
 export async function listar(_req, res) {

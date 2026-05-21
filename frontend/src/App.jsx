@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, DollarSign, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X } from 'lucide-react';
+import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, DollarSign, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
+import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
 import { VentaMesa } from './components/VentaMesa.jsx';
@@ -16,9 +17,11 @@ export default function App() {
   const [vistaActual, setVistaActual] = useState('home');
   const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
   const [cargaMesas, setCargaMesas] = useState({});
-  const [cajaAbierta, setCajaAbierta] = useState(false);
-  
+  const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
+
   const store = useDataStore({ enabled: !!usuarioActual });
+  const cajaAbierta = store.cajaActual?.abierta ?? false;
+  const resumenCaja = store.cajaActual?.resumen;
 
   const handleLogout = () => {
     logout();
@@ -39,19 +42,21 @@ export default function App() {
   };
 
   const handleConfirmarVentaMesa = async (numeroMesa, ventaPayload) => {
-    await store.registrarVenta(ventaPayload);
+    const venta = await store.registrarVenta(ventaPayload);
     setCargaMesas((prev) => {
       const nuevo = { ...prev };
       delete nuevo[numeroMesa];
       return nuevo;
     });
     setMesaSeleccionada(null);
+    return venta;
   };
 
-  const ventasAbiertas = useMemo(
-    () => store.ventas.filter((v) => v.cierreCajaId == null),
-    [store.ventas]
-  );
+  const ventasAbiertas = useMemo(() => {
+    const sesionId = store.cajaActual?.sesion?.id;
+    if (!cajaAbierta || !sesionId) return [];
+    return store.ventas.filter((v) => v.cierreCajaId === sesionId);
+  }, [store.ventas, store.cajaActual?.sesion?.id, cajaAbierta]);
 
   const totalVentasAbiertas = useMemo(
     () => ventasAbiertas.reduce((sum, v) => sum + v.total, 0),
@@ -317,11 +322,11 @@ export default function App() {
   if (vistaActual === 'cajas' && !puedeAccederCajas) setVistaActual('home');
   if (vistaActual === 'configuracion' && !puedeAccederConfiguracion) setVistaActual('home');
 
+  let contenido = null;
+
   if (vistaActual === 'ventas') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="ventas" />
-        <div className="flex-1 relative flex">
+    contenido = (
+      <div className="flex-1 relative flex">
           <div className={`flex-1 flex flex-col ${!cajaAbierta ? 'filter blur-md pointer-events-none opacity-40 select-none' : ''}`}>
             <VentaMostrador
               onVolver={() => setVistaActual('home')}
@@ -343,16 +348,11 @@ export default function App() {
               </div>
             </div>
           )}
-        </div>
       </div>
     );
-  }
-
-  if (vistaActual === 'stock') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="stock" />
-        <GestionStock
+  } else if (vistaActual === 'stock') {
+    contenido = (
+      <GestionStock
           onVolver={() => setVistaActual('home')}
           categorias={store.categorias}
           productos={store.productos}
@@ -360,15 +360,10 @@ export default function App() {
           onActualizarProducto={store.actualizarProducto}
           onEliminarProducto={store.eliminarProducto}
         />
-      </div>
     );
-  }
-
-  if (vistaActual === 'mesas') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="mesas" />
-        <div className="flex-1 relative flex">
+  } else if (vistaActual === 'mesas') {
+    contenido = (
+      <div className="flex-1 relative flex">
           <div className={`flex-1 flex flex-col ${!cajaAbierta ? 'filter blur-md pointer-events-none opacity-40 select-none' : ''}`}>
             {mesaSeleccionada !== null ? (
               <VentaMesa
@@ -405,16 +400,11 @@ export default function App() {
               </div>
             </div>
           )}
-        </div>
       </div>
     );
-  }
-
-  if (vistaActual === 'configuracion') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="configuracion" />
-        <Configuracion
+  } else if (vistaActual === 'configuracion') {
+    contenido = (
+      <Configuracion
           onVolver={() => setVistaActual('home')}
           metodosPago={store.metodosPago}
           onCrearMetodoPago={store.crearMetodoPago}
@@ -429,28 +419,19 @@ export default function App() {
           onActualizarGastoFijo={store.actualizarGastoFijo}
           onEliminarGastoFijo={store.eliminarGastoFijo}
         />
-      </div>
     );
-  }
-
-  if (vistaActual === 'cajas') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="cajas" />
+  } else if (vistaActual === 'cajas') {
+    contenido = (
         <ConsultaCajas
           onVolver={() => setVistaActual('home')}
           cierres={store.cierres}
           ventasAbiertas={ventasAbiertas}
+          cajaActual={store.cajaActual}
           onCerrarCaja={store.cerrarCajaActual}
         />
-      </div>
     );
-  }
-
-  if (vistaActual === 'stats') {
-    return (
-      <div className="min-h-screen bg-black text-white flex">
-        <Sidebar active="stats" />
+  } else if (vistaActual === 'stats') {
+    contenido = (
         <Stats
           onVolver={() => setVistaActual('home')}
           ventas={store.ventas}
@@ -459,14 +440,10 @@ export default function App() {
           productos={store.productos}
           onCrearGasto={store.crearGasto}
         />
-      </div>
     );
-  }
-
-  return (
-    <div className="min-h-screen bg-black text-white flex">
-      <Sidebar active="home" />
-
+  } else {
+    contenido = (
+      <>
       <div className="flex-1 flex flex-col">
         <header className="px-8 py-6 border-b border-zinc-800">
           <div className="flex items-center justify-between">
@@ -479,13 +456,20 @@ export default function App() {
               <Package className="w-5 h-5" />
               Retirar
             </button>
-            {!cajaAbierta ? (
-              <button onClick={() => setCajaAbierta(true)} className="bg-green-500 hover:bg-green-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-green-500/20">
+            {esAdministrador && !cajaAbierta && (
+              <button
+                onClick={() => setShowAbrirCajaModal(true)}
+                className="bg-green-500 hover:bg-green-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-green-500/20"
+              >
                 <Lock className="w-5 h-5" />
                 Abrir Caja
               </button>
-            ) : (
-              <button onClick={() => setCajaAbierta(false)} className="bg-red-500 hover:bg-red-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-red-500/20">
+            )}
+            {esAdministrador && cajaAbierta && (
+              <button
+                onClick={() => setVistaActual('cajas')}
+                className="bg-red-500 hover:bg-red-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-red-500/20"
+              >
                 <Lock className="w-5 h-5" />
                 Cerrar Caja
               </button>
@@ -533,6 +517,11 @@ export default function App() {
                   <div className={`w-3 h-3 rounded-full ${cajaAbierta ? 'bg-green-500' : 'bg-red-500'}`}></div>
                   <p className="text-2xl font-bold text-white">{cajaAbierta ? 'Abierta' : 'Cerrada'}</p>
                 </div>
+                {cajaAbierta && store.cajaActual?.sesion && (
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Efectivo inicial: ${store.cajaActual.sesion.efectivoInicial.toLocaleString()}
+                  </p>
+                )}
               </div>
 
               {/* Tarjeta 2 */}
@@ -598,6 +587,29 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {cajaAbierta && resumenCaja && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-zinc-900/50 rounded-xl p-6 border border-emerald-800/40">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Wallet className="w-5 h-5 text-emerald-500" />
+                    <p className="text-zinc-400 text-sm font-medium">Efectivo esperado en caja</p>
+                  </div>
+                  <p className="text-3xl font-bold text-emerald-500">
+                    ${resumenCaja.efectivoEsperado.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-zinc-900/50 rounded-xl p-6 border border-blue-800/40">
+                  <div className="flex items-center gap-3 mb-3">
+                    <CreditCard className="w-5 h-5 text-blue-500" />
+                    <p className="text-zinc-400 text-sm font-medium">Virtual / Transferencias</p>
+                  </div>
+                  <p className="text-3xl font-bold text-blue-500">
+                    ${resumenCaja.ingresoVirtual.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* 3. SECCIÓN INFERIOR (Contenido Principal) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -711,6 +723,68 @@ export default function App() {
             </div>
           ) : (
             <>
+              {cajaAbierta && resumenCaja && (
+                <>
+                  <h2 className="text-lg font-bold text-white mb-4">Arqueo de Caja (deberías tener)</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                    <div className="bg-zinc-900/50 rounded-xl p-6 border border-emerald-800/50 relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                            <Wallet className="w-5 h-5 text-emerald-500" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-400 text-sm font-medium">Efectivo en caja</p>
+                            <p className="text-xs text-zinc-500">Inicial + ventas efectivo − gastos efectivo</p>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-4xl font-bold text-emerald-500">
+                        ${resumenCaja.efectivoEsperado.toLocaleString()}
+                      </p>
+                      <div className="mt-4 space-y-1 text-xs text-zinc-500">
+                        <p>Inicial: ${(store.cajaActual?.sesion?.efectivoInicial || 0).toLocaleString()}</p>
+                        <p>+ Ventas efectivo: ${resumenCaja.ingresoEfectivo.toLocaleString()}</p>
+                        {resumenCaja.egresoEfectivo > 0 && (
+                          <p>− Gastos efectivo: ${resumenCaja.egresoEfectivo.toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="bg-zinc-900/50 rounded-xl p-6 border border-blue-800/50 relative overflow-hidden">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                            <CreditCard className="w-5 h-5 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-400 text-sm font-medium">Transferencias / Virtual</p>
+                            <p className="text-xs text-zinc-500">Tarjetas, transferencias y otros</p>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-4xl font-bold text-blue-500">
+                        ${resumenCaja.ingresoVirtual.toLocaleString()}
+                      </p>
+                      <p className="mt-4 text-xs text-zinc-500">
+                        Total ventas del turno: ${resumenCaja.ingresoTotal.toLocaleString()} ({resumenCaja.cantidadVentas} tickets)
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {!cajaAbierta && (
+                <div className="mb-8 bg-amber-900/20 border border-amber-700/50 rounded-xl p-4 flex items-center gap-4">
+                  <Lock className="w-8 h-8 text-amber-500 shrink-0" />
+                  <div>
+                    <h3 className="text-amber-500 font-bold">Caja cerrada</h3>
+                    <p className="text-sm text-amber-200/70">
+                      El administrador debe abrir la caja para comenzar el turno y ver el arqueo.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <h2 className="text-lg font-bold text-white mb-4">Acciones Rápidas</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 <button
@@ -773,6 +847,21 @@ export default function App() {
         onRetirar={handleRetirarMercaderia}
         procesando={procesandoRetiro}
       />
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white flex">
+      <Sidebar active={vistaActual} />
+      {contenido}
+      {esAdministrador && (
+        <AbrirCajaModal
+          isOpen={showAbrirCajaModal}
+          onClose={() => setShowAbrirCajaModal(false)}
+          onConfirmar={store.abrirCaja}
+        />
+      )}
     </div>
   );
 }

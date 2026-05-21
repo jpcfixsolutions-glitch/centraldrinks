@@ -1,12 +1,23 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Plus, Printer, DollarSign, Trash2, Minus, Receipt } from 'lucide-react';
 import { AgregarProductoModal } from './AgregarProductoModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
+import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
 
 export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onRegistrarVenta }) {
   const [carrito, setCarrito] = useState([]);
   const [showAgregarModal, setShowAgregarModal] = useState(false);
   const [showCobrarModal, setShowCobrarModal] = useState(false);
+  const [ticketPostVenta, setTicketPostVenta] = useState(null);
+  const ticketPreCobroRef = useRef(null);
+  const ticketPostVentaRef = useRef(null);
+
+  useEffect(() => {
+    if (ticketPostVenta && ticketPostVentaRef.current) {
+      imprimirTicket(ticketPostVentaRef.current);
+      setTicketPostVenta(null);
+    }
+  }, [ticketPostVenta]);
 
   const totalVenta = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
 
@@ -52,9 +63,19 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
       })),
       pagos,
     };
-    await onRegistrarVenta(venta);
+    const creada = await onRegistrarVenta(venta);
     setCarrito([]);
     setShowCobrarModal(false);
+    setTicketPostVenta({
+      items: venta.items,
+      descuento,
+      pagos: pagos.map((p) => ({ metodo: p.metodoPago, monto: p.monto })),
+      codigo: creada?.codigo,
+    });
+  };
+
+  const handleImprimirPreCobro = () => {
+    imprimirTicket(ticketPreCobroRef.current);
   };
 
   return (
@@ -128,6 +149,7 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
               </div>
 
               <button
+                onClick={handleImprimirPreCobro}
                 disabled={carrito.length === 0}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg p-4 flex items-center justify-center gap-2"
               >
@@ -178,6 +200,12 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
                           </p>
                         </div>
                         <div className="text-right">
+                          {venta.pagos?.some((p) => p.recargo > 0) && (
+                            <p className="text-xs text-zinc-500">
+                              Importe ${(venta.total - venta.pagos.reduce((s, p) => s + p.recargo, 0)).toLocaleString()}
+                              {' '}+ recargo ${venta.pagos.reduce((s, p) => s + p.recargo, 0).toLocaleString()}
+                            </p>
+                          )}
                           <p className="text-lg font-bold">${venta.total.toLocaleString()}</p>
                         </div>
                       </div>
@@ -203,7 +231,34 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
         totalVenta={totalVenta}
         onConfirmar={handleConfirmarVenta}
         metodosPago={metodosPago}
+        items={carrito}
+        tipo="mostrador"
       />
+
+      <div className="hidden" aria-hidden="true">
+        <div ref={ticketPreCobroRef}>
+          <TicketCobro
+            items={carrito.map((p) => ({
+              nombre: p.nombre,
+              precio: p.precio,
+              cantidad: p.cantidad,
+            }))}
+            tipo="mostrador"
+          />
+        </div>
+        {ticketPostVenta && (
+          <div ref={ticketPostVentaRef}>
+            <TicketCobro
+              items={ticketPostVenta.items}
+              descuento={ticketPostVenta.descuento}
+              pagos={ticketPostVenta.pagos}
+              metodosPago={metodosPago}
+              tipo="mostrador"
+              codigo={ticketPostVenta.codigo}
+            />
+          </div>
+        )}
+      </div>
     </>
   );
 }

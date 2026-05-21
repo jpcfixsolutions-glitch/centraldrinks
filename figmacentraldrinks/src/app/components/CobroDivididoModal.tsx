@@ -11,43 +11,55 @@ interface CobroDivididoModalProps {
   isOpen: boolean;
   onClose: () => void;
   totalVenta: number;
-  onConfirmar: () => void;
+  onConfirmar: (detalles: { pagos: Pago[], descuento: number, totalRecargo: number, totalFinal: number }) => void;
   metodosPago: { id: number; nombre: string; recargo: number }[];
 }
 
 export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, metodosPago }: CobroDivididoModalProps) {
   const [descuento, setDescuento] = useState(0);
-  const [pagos, setPagos] = useState<Pago[]>([
-    { id: 1, metodo: metodosPago[0]?.nombre || '', monto: 0 }
-  ]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
 
-  // Calcular total con recargos
-  const totalPagosConRecargo = pagos.reduce((sum, pago) => {
-    const metodo = metodosPago.find(m => m.nombre === pago.metodo);
-    const recargo = metodo ? (pago.monto * metodo.recargo / 100) : 0;
-    return sum + pago.monto + recargo;
-  }, 0);
-
-  const totalACobrar = totalVenta - descuento;
-  const diferencia = totalPagosConRecargo - totalACobrar;
-  const montoCubierto = diferencia === 0;
-  const sobrante = diferencia > 0;
-  const faltante = diferencia < 0;
+  const obtenerBase = (montoFinal: number, metodoNombre: string) => {
+    const metodo = metodosPago.find(m => m.nombre === metodoNombre);
+    const porcentaje = metodo ? Number(metodo.recargo) : 0;
+    return montoFinal / (1 + (porcentaje / 100));
+  };
 
   useEffect(() => {
     if (isOpen) {
       setDescuento(0);
-      setPagos([{ id: 1, metodo: metodosPago[0]?.nombre || '', monto: 0 }]);
+      const metodoInicial = metodosPago[0];
+      const porcentaje = metodoInicial ? Number(metodoInicial.recargo) : 0;
+      const montoFinal = totalVenta * (1 + (porcentaje / 100));
+      setPagos([{ id: 1, metodo: metodoInicial?.nombre || '', monto: Number(montoFinal.toFixed(2)) }]);
     }
-  }, [isOpen, metodosPago]);
+  }, [isOpen, metodosPago, totalVenta]);
+
+  const totalBaseCubierto = pagos.reduce((sum, pago) => sum + obtenerBase(pago.monto || 0, pago.metodo), 0);
+
+  const totalACobrarBase = totalVenta - descuento;
+  const diferenciaBase = totalBaseCubierto - totalACobrarBase;
+  
+  const montoCubierto = Math.abs(diferenciaBase) < 0.01;
+  const sobrante = diferenciaBase > 0.01;
+  const faltante = diferenciaBase < -0.01;
+  
+  const totalFinalCliente = pagos.reduce((sum, pago) => sum + (pago.monto || 0), 0);
+  const totalRecargo = pagos.reduce((sum, pago) => {
+    const base = obtenerBase(pago.monto || 0, pago.metodo);
+    return sum + ((pago.monto || 0) - base);
+  }, 0);
 
   if (!isOpen) return null;
 
   const agregarMetodoPago = () => {
     if (pagos.length >= 2) return;
-    const nuevoId = Math.max(...pagos.map(p => p.id)) + 1;
-    const metodoDisponible = metodosPago.find(m => !pagos.some(p => p.metodo === m.nombre));
-    setPagos([...pagos, { id: nuevoId, metodo: metodoDisponible?.nombre || metodosPago[0]?.nombre || '', monto: 0 }]);
+    const nuevoId = Math.max(...pagos.map(p => p.id), 0) + 1;
+    const metodoDisponible = metodosPago.find(m => !pagos.some(p => p.metodo === m.nombre)) || metodosPago[0];
+    const recargoNuevo = metodoDisponible ? Number(metodoDisponible.recargo) : 0;
+    const baseSugerida = faltante ? Math.abs(diferenciaBase) : 0;
+    const montoSugeridoFinal = baseSugerida * (1 + (recargoNuevo / 100));
+    setPagos([...pagos, { id: nuevoId, metodo: metodoDisponible?.nombre || '', monto: Number(montoSugeridoFinal.toFixed(2)) }]);
   };
 
   const eliminarMetodoPago = (id: number) => {
@@ -55,18 +67,27 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
     setPagos(pagos.filter(p => p.id !== id));
   };
 
-  const actualizarMonto = (id: number, monto: string) => {
-    const montoNumero = parseFloat(monto) || 0;
-    setPagos(pagos.map(p => p.id === id ? { ...p, monto: montoNumero } : p));
+  const actualizarMonto = (id: number, montoStr: string) => {
+    const monto = parseFloat(montoStr) || 0;
+    setPagos(pagos.map(p => p.id === id ? { ...p, monto } : p));
   };
 
   const actualizarMetodo = (id: number, metodo: string) => {
-    setPagos(pagos.map(p => p.id === id ? { ...p, metodo } : p));
+    setPagos(pagos.map(p => {
+      if (p.id === id) {
+        const baseActual = obtenerBase(p.monto || 0, p.metodo);
+        const metodoNuevo = metodosPago.find(m => m.nombre === metodo);
+        const recargoNuevo = metodoNuevo ? Number(metodoNuevo.recargo) : 0;
+        const nuevoMontoFinal = baseActual * (1 + (recargoNuevo / 100));
+        return { ...p, metodo, monto: Number(nuevoMontoFinal.toFixed(2)) };
+      }
+      return p;
+    }));
   };
 
   const handleConfirmar = () => {
     if (!montoCubierto) return;
-    onConfirmar();
+    onConfirmar({ pagos, descuento, totalRecargo, totalFinal: totalFinalCliente });
   };
 
   return (
@@ -126,7 +147,7 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
                   >
                     {metodosPago.map(metodo => (
                       <option key={metodo.id} value={metodo.nombre}>
-                        {metodo.nombre} {metodo.recargo !== 0 && `(${metodo.recargo > 0 ? '+' : ''}${metodo.recargo}%)`}
+                        {metodo.nombre} {Number(metodo.recargo) !== 0 && `(${Number(metodo.recargo) > 0 ? '+' : ''}${metodo.recargo}%)`}
                       </option>
                     ))}
                   </select>
@@ -166,18 +187,19 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
             )}
             {pagos.some(p => {
               const metodo = metodosPago.find(m => m.nombre === p.metodo);
-              return metodo && metodo.recargo !== 0 && p.monto > 0;
+              return metodo && Number(metodo.recargo) !== 0 && (p.monto || 0) > 0;
             }) && (
               <div className="border-t border-zinc-700 pt-2 space-y-1">
                 {pagos.map(pago => {
                   const metodo = metodosPago.find(m => m.nombre === pago.metodo);
-                  const recargo = metodo ? (pago.monto * metodo.recargo / 100) : 0;
-                  if (recargo === 0 || pago.monto === 0) return null;
+                  const base = obtenerBase(pago.monto || 0, pago.metodo);
+                  const recargo = (pago.monto || 0) - base;
+                  if (Math.abs(recargo) < 0.01 || (pago.monto || 0) === 0) return null;
                   return (
                     <div key={pago.id} className="flex items-center justify-between text-xs">
                       <span className="text-zinc-500">Recargo {pago.metodo}:</span>
                       <span className={recargo > 0 ? 'text-red-500' : 'text-green-500'}>
-                        {recargo > 0 ? '+' : ''}${recargo.toLocaleString()}
+                        {recargo > 0 ? '+' : ''}${Number(recargo.toFixed(2)).toLocaleString()}
                       </span>
                     </div>
                   );
@@ -189,21 +211,21 @@ export function CobroDivididoModal({ isOpen, onClose, totalVenta, onConfirmar, m
                 <p className="text-lg font-medium">A COBRAR:</p>
                 {faltante && (
                   <p className="text-sm text-yellow-500">
-                    Pendiente: ${Math.abs(diferencia).toLocaleString()}
+                    Pendiente Base: ${Math.abs(diferenciaBase).toLocaleString()}
                   </p>
                 )}
                 {sobrante && (
                   <p className="text-sm text-yellow-500">
-                    Sobrante: ${Math.abs(diferencia).toLocaleString()}
+                    Sobrante Base: ${Math.abs(diferenciaBase).toLocaleString()}
                   </p>
                 )}
                 {montoCubierto && (
                   <p className="text-sm text-green-500">
-                    ✓ Monto cubierto
+                    ✓ Base cubierta
                   </p>
                 )}
               </div>
-              <p className="text-2xl font-bold">${totalACobrar.toLocaleString()}</p>
+              <p className="text-2xl font-bold">${totalFinalCliente.toLocaleString()}</p>
             </div>
           </div>
 

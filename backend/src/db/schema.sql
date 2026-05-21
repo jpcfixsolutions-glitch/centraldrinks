@@ -93,13 +93,19 @@ CREATE TABLE IF NOT EXISTS mesas (
 -- CIERRES DE CAJA
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cierres_caja (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  caja            TEXT    NOT NULL DEFAULT 'Caja 01',
-  usuario_id      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-  empleado        TEXT    NOT NULL,
-  cantidad_ventas INTEGER NOT NULL DEFAULT 0,
-  ingreso_total   REAL    NOT NULL DEFAULT 0,
-  fecha_cierre    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  caja             TEXT    NOT NULL DEFAULT 'Caja 01',
+  usuario_id       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  empleado         TEXT    NOT NULL,
+  efectivo_inicial REAL    NOT NULL DEFAULT 0,
+  fecha_apertura   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  abierta          INTEGER NOT NULL DEFAULT 1 CHECK (abierta IN (0, 1)),
+  cantidad_ventas  INTEGER NOT NULL DEFAULT 0,
+  ingreso_total    REAL    NOT NULL DEFAULT 0,
+  ingreso_efectivo REAL    NOT NULL DEFAULT 0,
+  ingreso_virtual  REAL    NOT NULL DEFAULT 0,
+  egreso_efectivo  REAL    NOT NULL DEFAULT 0,
+  fecha_cierre     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_cierres_usuario ON cierres_caja(usuario_id);

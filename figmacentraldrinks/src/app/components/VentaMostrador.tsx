@@ -68,18 +68,35 @@ export function VentaMostrador({ onVolver, metodosPago }: VentaMostradorProps) {
     setCarrito(prev => prev.filter(p => p.id !== id));
   };
 
-  const handleConfirmarVenta = () => {
-    // Registrar la venta
+  const handleConfirmarVenta = (detalles: { pagos: {metodo: string, monto: number}[], descuento: number, totalRecargo: number, totalFinal: number }) => {
+    const productosFinales = carrito.map(p => ({
+      nombre: p.nombre,
+      cantidad: p.cantidad,
+      precio: p.precio
+    }));
+
+    if (detalles.totalRecargo > 0) {
+      productosFinales.push({
+        nombre: `Recargo por método de pago`,
+        cantidad: 1,
+        precio: detalles.totalRecargo
+      });
+    }
+    
+    if (detalles.descuento > 0) {
+      productosFinales.push({
+        nombre: `Descuento aplicado`,
+        cantidad: 1,
+        precio: -detalles.descuento
+      });
+    }
+
     const nuevaVenta: VentaMostrador = {
       id: `MOST${Date.now()}`,
       fecha: new Date(),
-      metodoPago: 'Efectivo', // Esto se debería obtener del modal de cobro
-      total: totalVenta,
-      productos: carrito.map(p => ({
-        nombre: p.nombre,
-        cantidad: p.cantidad,
-        precio: p.precio
-      }))
+      metodoPago: detalles.pagos.map(p => p.metodo).join(' + '),
+      total: detalles.totalFinal,
+      productos: productosFinales
     };
 
     setVentasRealizadas(prev => [nuevaVenta, ...prev]);

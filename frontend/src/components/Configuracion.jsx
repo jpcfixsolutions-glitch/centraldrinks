@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Edit, Trash2, CreditCard, Tag } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, CreditCard, Tag, Building } from 'lucide-react';
 
 export function Configuracion({
   onVolver,
@@ -11,6 +11,10 @@ export function Configuracion({
   onCrearCategoria,
   onActualizarCategoria,
   onEliminarCategoria,
+  gastosFijos = [],
+  onCrearGastoFijo,
+  onActualizarGastoFijo,
+  onEliminarGastoFijo,
 }) {
   const [seccionActiva, setSeccionActiva] = useState('metodos-pago');
   const [errorMsg, setErrorMsg] = useState(null);
@@ -20,6 +24,9 @@ export function Configuracion({
 
   const [showCategoriaModal, setShowCategoriaModal] = useState(false);
   const [categoriaEditando, setCategoriaEditando] = useState(null);
+
+  const [showGastoFijoModal, setShowGastoFijoModal] = useState(false);
+  const [gastoFijoEditando, setGastoFijoEditando] = useState(null);
 
   const [guardando, setGuardando] = useState(false);
 
@@ -95,6 +102,35 @@ export function Configuracion({
     }
   };
 
+  const handleAgregarGastoFijo = () => {
+    setGastoFijoEditando(null);
+    setShowGastoFijoModal(true);
+  };
+
+  const handleEditarGastoFijo = (gasto) => {
+    setGastoFijoEditando(gasto);
+    setShowGastoFijoModal(true);
+  };
+
+  const handleEliminarGastoFijo = async (id) => {
+    if (!confirm('¿Estás seguro de eliminar este gasto fijo?')) return;
+    await ejecutarOp(() => onEliminarGastoFijo(id));
+  };
+
+  const handleGuardarGastoFijo = async (nombre, monto) => {
+    const ok = await ejecutarOp(async () => {
+      if (gastoFijoEditando) {
+        await onActualizarGastoFijo(gastoFijoEditando.id, { nombre, monto });
+      } else {
+        await onCrearGastoFijo({ nombre, monto });
+      }
+    });
+    if (ok) {
+      setShowGastoFijoModal(false);
+      setGastoFijoEditando(null);
+    }
+  };
+
   return (
     <>
       <div className="flex-1 flex flex-col bg-black text-white">
@@ -106,7 +142,7 @@ export function Configuracion({
             <div>
               <h1 className="text-2xl font-bold">Configuración</h1>
               <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
-                Centraldrinks - Parámetros del Sistema
+                Club 22 - Parámetros del Sistema
               </p>
             </div>
           </div>
@@ -142,6 +178,17 @@ export function Configuracion({
               >
                 <Tag className="w-5 h-5" />
                 Categorías de Productos
+              </button>
+              <button
+                onClick={() => setSeccionActiva('gastos-fijos')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  seccionActiva === 'gastos-fijos'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+                }`}
+              >
+                <Building className="w-5 h-5" />
+                Gastos Fijos
               </button>
             </div>
           </div>
@@ -273,6 +320,58 @@ export function Configuracion({
                 </div>
               </div>
             )}
+
+            {seccionActiva === 'gastos-fijos' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold">Gastos Fijos del Mes</h2>
+                  <button
+                    onClick={handleAgregarGastoFijo}
+                    className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Nuevo Gasto Fijo
+                  </button>
+                </div>
+
+                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-zinc-800">
+                        <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Nombre / Concepto</th>
+                        <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Monto Mensual</th>
+                        <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gastosFijos.map((gasto) => (
+                        <tr key={gasto.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+                          <td className="px-6 py-4 font-medium">{gasto.nombre}</td>
+                          <td className="px-6 py-4 text-red-500 font-medium">${gasto.monto.toLocaleString()}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => handleEditarGastoFijo(gasto)} className="p-2 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-400 hover:text-white">
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleEliminarGastoFijo(gasto.id)} className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {gastosFijos.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-12 text-center text-zinc-500">
+                            No hay gastos fijos. Creá uno con "Nuevo Gasto Fijo".
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -297,6 +396,16 @@ export function Configuracion({
         onGuardar={handleGuardarCategoria}
         categoriaEditando={categoriaEditando}
         guardando={guardando}
+      />
+
+      <ModalGastoFijo
+        isOpen={showGastoFijoModal}
+        onClose={() => {
+          setShowGastoFijoModal(false);
+          setGastoFijoEditando(null);
+        }}
+        onGuardar={handleGuardarGastoFijo}
+        gastoEditando={gastoFijoEditando}
       />
     </>
   );
@@ -382,6 +491,74 @@ function ModalMetodoPago({ isOpen, onClose, onGuardar, metodoEditando, guardando
             >
               {guardando ? 'Guardando...' : metodoEditando ? 'Guardar' : 'Crear'}
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ModalGastoFijo({ isOpen, onClose, onGuardar, gastoEditando }) {
+  const [nombre, setNombre] = useState('');
+  const [monto, setMonto] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (gastoEditando) {
+        setNombre(gastoEditando.nombre);
+        setMonto(gastoEditando.monto.toString());
+      } else {
+        setNombre('');
+        setMonto('');
+      }
+    }
+  }, [isOpen, gastoEditando]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!nombre.trim() || !monto) {
+      alert('Por favor ingresa un nombre y un monto válidos');
+      return;
+    }
+    onGuardar(nombre.trim(), parseFloat(monto));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-zinc-900 rounded-lg w-full max-w-md">
+        <div className="p-6 border-b border-zinc-800">
+          <h2 className="text-xl font-bold">{gastoEditando ? 'Editar Gasto Fijo' : 'Nuevo Gasto Fijo'}</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Concepto</label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+              placeholder="Ej: Luz, Alquiler..."
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Monto Estimado / Fijo ($)</label>
+            <input
+              type="number"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+              placeholder="0"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button type="button" onClick={onClose} className="bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg py-3 font-medium">Cancelar</button>
+            <button type="submit" className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg py-3 font-medium">Guardar</button>
           </div>
         </form>
       </div>

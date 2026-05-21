@@ -14,7 +14,8 @@ async function run() {
   console.log('[migrate] Aplicando schema en la base de datos...');
   await client.executeMultiple(sql);
 
-  console.log('[migrate] Listo. Tablas, índices y datos iniciales aplicados.');
+  console.log('[migrate] Listo. Tablas e índices aplicados.');
+  console.log('[migrate] Ejecutá npm run db:seed-usuarios para crear admin y empleado.');
   process.exit(0);
 }
 

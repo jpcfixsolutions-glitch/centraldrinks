@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Search, Package, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { NuevoProductoModal } from './NuevoProductoModal.jsx';
 
 export function GestionStock({
@@ -24,9 +24,6 @@ export function GestionStock({
     return matchBusqueda && matchCategoria;
   });
 
-  const totalProductos = productos.length;
-  const stockTotal = productos.reduce((sum, p) => sum + p.stock, 0);
-
   const handleGuardarProducto = async (data) => {
     setErrorMsg(null);
     setGuardando(true);
@@ -38,6 +35,7 @@ export function GestionStock({
         precioMesa: data.precioMesa,
         precioMostrador: data.precioMostrador,
         stock: data.stock,
+        stockMinimo: data.stockMinimo,
       };
       if (productoEditando) {
         await onActualizarProducto(productoEditando.id, payload);
@@ -88,10 +86,9 @@ export function GestionStock({
     }
   };
 
-  const getEstadoStock = (stock) => {
-    if (stock < 10) return { texto: 'Muy bajo', color: 'bg-red-600/20 text-red-500 border-red-600' };
-    if (stock < 15) return { texto: 'Reponer', color: 'bg-yellow-600/20 text-yellow-500 border-yellow-600' };
-    if (stock >= 20) return { texto: 'Disponible', color: 'bg-green-600/20 text-green-500 border-green-600' };
+  const getEstadoStock = (stock, stockMinimo = 5) => {
+    if (stock <= stockMinimo) return { texto: 'Reponer', color: 'bg-red-600/20 text-red-500 border-red-600' };
+    if (stock <= stockMinimo + 5) return { texto: 'Bajo', color: 'bg-yellow-600/20 text-yellow-500 border-yellow-600' };
     return { texto: 'Normal', color: 'bg-blue-600/20 text-blue-500 border-blue-600' };
   };
 
@@ -107,7 +104,7 @@ export function GestionStock({
               <div>
                 <h1 className="text-2xl font-bold">Catálogo de Productos</h1>
                 <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
-                  Centraldrinks - Gestión de Stock
+                  Club 22 - Gestión de Stock
                 </p>
               </div>
             </div>
@@ -157,28 +154,6 @@ export function GestionStock({
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 bg-red-600/20 rounded-lg flex items-center justify-center">
-                  <Package className="w-6 h-6 text-red-500" />
-                </div>
-                <p className="text-zinc-400 text-sm uppercase tracking-wide">Productos</p>
-              </div>
-              <p className="text-4xl font-bold">{totalProductos}</p>
-            </div>
-
-            <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-green-500" />
-                </div>
-                <p className="text-zinc-400 text-sm uppercase tracking-wide">Stock Total</p>
-              </div>
-              <p className="text-4xl font-bold">{stockTotal.toLocaleString()}</p>
-            </div>
-          </div>
-
           <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -190,13 +165,14 @@ export function GestionStock({
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Precio Mesa</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Precio Mostr.</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Stock</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Mínimo</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Estado</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {productosFiltrados.map((producto) => {
-                    const estado = getEstadoStock(producto.stock);
+                    const estado = getEstadoStock(producto.stock, producto.stockMinimo);
                     return (
                       <tr key={producto.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                         <td className="px-6 py-4">{producto.nombre}</td>
@@ -210,6 +186,9 @@ export function GestionStock({
                         <td className="px-6 py-4">${producto.precioMostrador.toLocaleString()}</td>
                         <td className="px-6 py-4">
                           <span className="font-medium">{producto.stock.toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4 text-zinc-400">
+                          {producto.stockMinimo || 5}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${estado.color}`}>

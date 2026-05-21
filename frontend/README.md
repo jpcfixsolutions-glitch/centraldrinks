@@ -1,4 +1,4 @@
-# Frontend - Centraldrinks
+# Frontend - Club 22
 
 SPA en React 18 + Vite + Tailwind CSS v4. **JavaScript puro** (JSX, sin TypeScript). Recreación fiel del diseño de Figma con autenticación JWT contra el backend.
 

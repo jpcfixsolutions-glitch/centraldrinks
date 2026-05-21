@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  auditLogsApi,
+  botellasBarraApi,
   cajasApi,
   categoriasApi,
+  gastosApi,
+  gastosFijosApi,
   mesasApi,
   metodosPagoApi,
   productosApi,
@@ -18,18 +22,26 @@ export function useDataStore({ enabled }) {
   const [mesas, setMesas] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [cierres, setCierres] = useState([]);
+  const [gastosFijos, setGastosFijos] = useState([]);
+  const [gastos, setGastos] = useState([]);
+  const [botellasBarra, setBotellasBarra] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   const recargarTodo = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [c, m, p, ms, v, cj] = await Promise.all([
+      const [c, m, p, ms, v, cj, gf, g, bb, al] = await Promise.all([
         categoriasApi.listar(),
         metodosPagoApi.listar(),
         productosApi.listar(),
         mesasApi.listar(),
         ventasApi.listar(),
         cajasApi.listar().catch(() => []),
+        gastosFijosApi.listar().catch(() => []),
+        gastosApi.listar().catch(() => []),
+        botellasBarraApi.listar().catch(() => []),
+        auditLogsApi.listar().catch(() => []),
       ]);
       setCategorias(c);
       setMetodosPago(m);
@@ -37,6 +49,10 @@ export function useDataStore({ enabled }) {
       setMesas(ms);
       setVentas(v);
       setCierres(cj);
+      setGastosFijos(gf);
+      setGastos(g);
+      setBotellasBarra(bb);
+      setAuditLogs(al);
     } catch (err) {
       setError(err.message || 'Error cargando datos');
     } finally {
@@ -70,6 +86,26 @@ export function useDataStore({ enabled }) {
   const recargarCierres = useCallback(async () => {
     const c = await cajasApi.listar();
     setCierres(c);
+  }, []);
+
+  const recargarGastosFijos = useCallback(async () => {
+    const gf = await gastosFijosApi.listar();
+    setGastosFijos(gf);
+  }, []);
+
+  const recargarGastos = useCallback(async () => {
+    const g = await gastosApi.listar();
+    setGastos(g);
+  }, []);
+
+  const recargarBotellasBarra = useCallback(async () => {
+    const bb = await botellasBarraApi.listar();
+    setBotellasBarra(bb);
+  }, []);
+
+  const recargarAuditLogs = useCallback(async () => {
+    const al = await auditLogsApi.listar();
+    setAuditLogs(al);
   }, []);
 
   const crearCategoria = useCallback(async (nombre) => {
@@ -156,6 +192,61 @@ export function useDataStore({ enabled }) {
     return cierre;
   }, [recargarCierres, recargarVentas]);
 
+  const crearGastoFijo = useCallback(
+    async (data) => {
+      const creado = await gastosFijosApi.crear(data);
+      setGastosFijos((prev) => [...prev, creado]);
+      return creado;
+    },
+    []
+  );
+
+  const actualizarGastoFijo = useCallback(
+    async (id, data) => {
+      const actualizado = await gastosFijosApi.actualizar(id, data);
+      setGastosFijos((prev) => prev.map((g) => (g.id === id ? actualizado : g)));
+      return actualizado;
+    },
+    []
+  );
+
+  const eliminarGastoFijo = useCallback(async (id) => {
+    await gastosFijosApi.eliminar(id);
+    setGastosFijos((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
+  const crearGasto = useCallback(
+    async (data) => {
+      const creado = await gastosApi.crear(data);
+      setGastos((prev) => [...prev, creado]);
+      return creado;
+    },
+    []
+  );
+
+  const crearBotellaBarra = useCallback(
+    async (data) => {
+      const nueva = await botellasBarraApi.crear(data);
+      setBotellasBarra((prev) => [...prev, nueva]);
+      return nueva;
+    },
+    []
+  );
+
+  const eliminarBotellaBarra = useCallback(async (id) => {
+    await botellasBarraApi.eliminar(id);
+    setBotellasBarra((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  const crearAuditLog = useCallback(
+    async (data) => {
+      const nuevo = await auditLogsApi.crear(data);
+      setAuditLogs((prev) => [nuevo, ...prev]);
+      return nuevo;
+    },
+    []
+  );
+
   return {
     loading,
     error,
@@ -165,9 +256,17 @@ export function useDataStore({ enabled }) {
     mesas,
     ventas,
     cierres,
+    gastosFijos,
+    gastos,
+    botellasBarra,
+    auditLogs,
     recargarTodo,
     recargarVentas,
     recargarCierres,
+    recargarGastosFijos,
+    recargarGastos,
+    recargarBotellasBarra,
+    recargarAuditLogs,
     crearCategoria,
     actualizarCategoria,
     eliminarCategoria,
@@ -181,5 +280,12 @@ export function useDataStore({ enabled }) {
     eliminarMesa,
     registrarVenta,
     cerrarCajaActual,
+    crearGastoFijo,
+    actualizarGastoFijo,
+    eliminarGastoFijo,
+    crearGasto,
+    crearBotellaBarra,
+    eliminarBotellaBarra,
+    crearAuditLog,
   };
 }

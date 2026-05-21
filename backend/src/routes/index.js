@@ -7,6 +7,10 @@ import productosRoutes from './productos.routes.js';
 import mesasRoutes from './mesas.routes.js';
 import ventasRoutes from './ventas.routes.js';
 import cajasRoutes from './cajas.routes.js';
+import gastosFijosRoutes from './gastosFijos.routes.js';
+import gastosRoutes from './gastos.routes.js';
+import botellasBarraRoutes from './botellasBarra.routes.js';
+import auditLogsRoutes from './auditLogs.routes.js';
 
 const router = Router();
 
@@ -18,5 +22,9 @@ router.use('/productos', productosRoutes);
 router.use('/mesas', mesasRoutes);
 router.use('/ventas', ventasRoutes);
 router.use('/cajas', cajasRoutes);
+router.use('/gastos-fijos', gastosFijosRoutes);
+router.use('/gastos', gastosRoutes);
+router.use('/botellas-barra', botellasBarraRoutes);
+router.use('/audit-logs', auditLogsRoutes);
 
 export default router;

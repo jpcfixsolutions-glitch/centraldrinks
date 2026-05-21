@@ -1,5 +1,5 @@
 -- =====================================================================
--- Centraldrinks - Schema SQL para Turso (libSQL / SQLite)
+-- Club 22 - Schema SQL para Turso (libSQL / SQLite)
 -- =====================================================================
 -- FORMAS DE APLICARLO:
 --
@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS productos (
   precio_mesa      REAL    NOT NULL DEFAULT 0,
   precio_mostrador REAL    NOT NULL DEFAULT 0,
   stock            INTEGER NOT NULL DEFAULT 0,
+  stock_minimo     INTEGER NOT NULL DEFAULT 5,
   imagen           TEXT,
   activo           INTEGER NOT NULL DEFAULT 1
                    CHECK (activo IN (0, 1)),
@@ -154,44 +155,55 @@ CREATE TABLE IF NOT EXISTS venta_pagos (
 
 CREATE INDEX IF NOT EXISTS idx_venta_pagos_venta ON venta_pagos(venta_id);
 
--- =====================================================================
--- DATOS INICIALES (SEED)
--- =====================================================================
--- Las contraseñas son hashes bcrypt (cost 10) de:
---   admin     -> admin123
---   empleado1 -> emp123
---   empleado2 -> emp123
--- Si querés generar nuevos hashes podés correr `npm run db:seed`,
--- que también es idempotente.
--- =====================================================================
+-- ---------------------------------------------------------------------
+-- GASTOS VARIABLES
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS gastos (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  asunto      TEXT    NOT NULL,
+  monto       REAL    NOT NULL,
+  metodo_pago TEXT    NOT NULL
+              CHECK (metodo_pago IN ('Efectivo', 'Virtual')),
+  usuario_id  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  fecha       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-INSERT OR IGNORE INTO usuarios (username, password_hash, nombre, rol) VALUES
-  ('admin',     '$2a$10$CjrK5kBHo2nS3r9/FWIHh.uP.tg5zJC.SZB4PT8zTE44uOcyVd4e.', 'Administrador', 'administrador'),
-  ('empleado1', '$2a$10$d.WB0XEXviFIStmm89HpOO8CaeB0CQ.8/hIoyGTD6AfgfMg/IlCKi', 'Empleado #1',   'empleado'),
-  ('empleado2', '$2a$10$y2AKhlGJh8dGBlfSMTWwX.GTiqlnP440sEU7Og97GtNFeoHJWfRxW', 'Empleado #2',   'empleado');
+CREATE INDEX IF NOT EXISTS idx_gastos_fecha ON gastos(fecha);
 
-INSERT OR IGNORE INTO categorias (nombre) VALUES
-  ('Vinos'),
-  ('Tapas'),
-  ('Cervezas'),
-  ('Promociones');
+-- ---------------------------------------------------------------------
+-- GASTOS FIJOS
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS gastos_fijos (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT    NOT NULL,
+  monto  REAL    NOT NULL
+);
 
-INSERT OR IGNORE INTO metodos_pago (nombre, recargo) VALUES
-  ('Efectivo',        0),
-  ('Transferencia',   0),
-  ('Tarjeta Débito',  5),
-  ('Tarjeta Crédito', 10);
+-- ---------------------------------------------------------------------
+-- BOTELLAS EN BARRA
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS botellas_barra (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  producto_id     INTEGER REFERENCES productos(id) ON DELETE CASCADE,
+  nombre_producto TEXT    NOT NULL,
+  fecha_apertura  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-INSERT OR IGNORE INTO mesas (numero) VALUES
-  (1), (2), (3), (4), (5), (6), (7), (8), (9), (10), (11), (12);
+CREATE INDEX IF NOT EXISTS idx_botellas_producto ON botellas_barra(producto_id);
 
-INSERT OR IGNORE INTO productos
-  (nombre,                                  categoria_id,                                                       costo_unitario, precio_mesa, precio_mostrador, stock)
-VALUES
-  ('Promo Absolut + 2 Speed XL',            (SELECT id FROM categorias WHERE nombre = 'Promociones'), 25000, 45000, 30000, 1000),
-  ('Promo fernet + coca de 2l retornable',  (SELECT id FROM categorias WHERE nombre = 'Promociones'), 15000, 30000, 20000, 1000),
-  ('Promo Skyy + 2 Speed',                  (SELECT id FROM categorias WHERE nombre = 'Promociones'), 12000, 30000, 15500, 1000),
-  ('Vino Santa Julia',                      (SELECT id FROM categorias WHERE nombre = 'Vinos'),        8000, 15000, 11000,   10);
+-- ---------------------------------------------------------------------
+-- LOGS DE AUDITORÍA
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo       TEXT    NOT NULL,
+  mensaje    TEXT    NOT NULL,
+  detalle    TEXT,
+  usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  fecha      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_fecha ON audit_logs(fecha);
 
 -- =====================================================================
 -- FIN

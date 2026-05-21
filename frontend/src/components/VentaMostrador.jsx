@@ -172,6 +172,7 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
                               minute: '2-digit',
                               day: '2-digit',
                               month: '2-digit',
+                              hour12: false,
                             })}{' '}
                             hs
                           </p>

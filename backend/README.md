@@ -1,4 +1,4 @@
-# Backend - Centraldrinks
+# Backend - Club 22
 
 API REST con Express + Drizzle ORM + Turso (libSQL) + JWT. **JavaScript puro** (sin TypeScript).
 

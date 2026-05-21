@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
-import { db } from '../services/db.js';
-import { usuarios } from '../models/schema.js';
-import { hashPassword } from '../services/hash.js';
+import * as usuariosService from '../services/usuarios.service.js';
 
 const usuarioSchema = z.object({
   username: z.string().min(3),
@@ -13,20 +10,8 @@ const usuarioSchema = z.object({
 
 const usuarioUpdateSchema = usuarioSchema.partial();
 
-function publicUser(u) {
-  return {
-    id: u.id,
-    username: u.username,
-    nombre: u.nombre,
-    rol: u.rol,
-    activo: u.activo,
-    createdAt: u.createdAt,
-  };
-}
-
 export async function listar(_req, res) {
-  const todos = await db.select().from(usuarios);
-  res.json(todos.map(publicUser));
+  res.json(await usuariosService.listar());
 }
 
 export async function crear(req, res) {
@@ -34,17 +19,14 @@ export async function crear(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
-  const { username, password, nombre, rol } = parsed.data;
-  const existente = await db.query.usuarios.findFirst({ where: eq(usuarios.username, username) });
+
+  const existente = await usuariosService.buscarPorUsername(parsed.data.username);
   if (existente) {
     return res.status(409).json({ error: 'El usuario ya existe' });
   }
-  const passwordHash = await hashPassword(password);
-  const [creado] = await db
-    .insert(usuarios)
-    .values({ username, passwordHash, nombre, rol })
-    .returning();
-  res.status(201).json(publicUser(creado));
+
+  const creado = await usuariosService.crear(parsed.data);
+  res.status(201).json(creado);
 }
 
 export async function actualizar(req, res) {
@@ -55,22 +37,17 @@ export async function actualizar(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
-  const data = parsed.data;
-  const update = {};
-  if (data.username) update.username = data.username;
-  if (data.nombre) update.nombre = data.nombre;
-  if (data.rol) update.rol = data.rol;
-  if (data.password) update.passwordHash = await hashPassword(data.password);
 
-  const [actualizado] = await db.update(usuarios).set(update).where(eq(usuarios.id, id)).returning();
+  const actualizado = await usuariosService.actualizar(id, parsed.data);
   if (!actualizado) return res.status(404).json({ error: 'Usuario no encontrado' });
-  res.json(publicUser(actualizado));
+  res.json(actualizado);
 }
 
 export async function eliminar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
-  const [borrado] = await db.delete(usuarios).where(eq(usuarios.id, id)).returning();
-  if (!borrado) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const ok = await usuariosService.eliminar(id);
+  if (!ok) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json({ ok: true });
 }

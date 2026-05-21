@@ -72,6 +72,7 @@ export function GestionMesas({
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   };
 
@@ -88,7 +89,7 @@ export function GestionMesas({
             <div>
               <h1 className="text-2xl font-bold">Gestión de Mesas</h1>
               <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
-                Centraldrinks - Control de Mesas
+                Club 22 - Control de Mesas
               </p>
             </div>
           </div>

@@ -102,3 +102,27 @@ export const cajasApi = {
   obtener: (id) => apiFetch(`/cajas/${id}`),
   cerrar: () => apiFetch('/cajas/cerrar', { method: 'POST', body: {} }),
 };
+
+export const gastosFijosApi = {
+  listar: () => apiFetch('/gastos-fijos'),
+  crear: (data) => apiFetch('/gastos-fijos', { method: 'POST', body: data }),
+  actualizar: (id, data) => apiFetch(`/gastos-fijos/${id}`, { method: 'PUT', body: data }),
+  eliminar: (id) => apiFetch(`/gastos-fijos/${id}`, { method: 'DELETE' }),
+};
+
+export const gastosApi = {
+  listar: () => apiFetch('/gastos'),
+  crear: (data) => apiFetch('/gastos', { method: 'POST', body: data }),
+  eliminar: (id) => apiFetch(`/gastos/${id}`, { method: 'DELETE' }),
+};
+
+export const botellasBarraApi = {
+  listar: () => apiFetch('/botellas-barra'),
+  crear: (data) => apiFetch('/botellas-barra', { method: 'POST', body: data }),
+  eliminar: (id) => apiFetch(`/botellas-barra/${id}`, { method: 'DELETE' }),
+};
+
+export const auditLogsApi = {
+  listar: () => apiFetch('/audit-logs'),
+  crear: (data) => apiFetch('/audit-logs', { method: 'POST', body: data }),
+};

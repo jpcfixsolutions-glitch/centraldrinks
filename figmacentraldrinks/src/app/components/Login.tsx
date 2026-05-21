@@ -77,9 +77,9 @@ export function Login({ onLogin }: LoginProps) {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl font-bold text-white">CD</span>
+            <span className="text-3xl font-bold text-white">C22</span>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Centraldrinks</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Club 22</h1>
           <p className="text-zinc-400">Sistema de Gestión</p>
         </div>
 

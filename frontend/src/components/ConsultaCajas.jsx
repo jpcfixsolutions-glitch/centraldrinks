@@ -19,9 +19,6 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
     return fechaMatch && empleadoMatch;
   });
 
-  const totalCajasCerradas = cierresFiltrados.length;
-  const ingresosTotales = cierresFiltrados.reduce((sum, c) => sum + (c.ingresoTotal || 0), 0);
-
   const cajaActualTotal = ventasAbiertas.reduce((sum, v) => sum + v.total, 0);
 
   const formatearFechaHora = (fecha) =>
@@ -32,6 +29,7 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
+      hour12: false,
     });
 
   const handleCerrarCaja = async () => {
@@ -79,39 +77,6 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, onCerrarCaja 
         </header>
 
         <div className="flex-1 p-8 overflow-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 bg-yellow-600/20 rounded-lg flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-yellow-500" />
-                </div>
-                <p className="text-zinc-400 text-sm">Caja actual (sin cerrar)</p>
-              </div>
-              <p className="text-4xl font-bold">{ventasAbiertas.length}</p>
-              <p className="text-sm text-zinc-400 mt-1">${cajaActualTotal.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-blue-500" />
-                </div>
-                <p className="text-zinc-400 text-sm">Cajas Cerradas</p>
-              </div>
-              <p className="text-4xl font-bold">{totalCajasCerradas}</p>
-            </div>
-
-            <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-green-500" />
-                </div>
-                <p className="text-zinc-400 text-sm">Ingresos (cierres filtrados)</p>
-              </div>
-              <p className="text-4xl font-bold text-green-500">${ingresosTotales.toLocaleString()}</p>
-            </div>
-          </div>
-
           <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6 mb-6">
             <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">Filtros</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -224,7 +189,7 @@ function DetalleCajaModal({ cierreId, onClose }) {
     new Date(fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const formatearHora = (fecha) =>
-    new Date(fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    new Date(fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
   if (error) {
     return (

@@ -1,6 +1,6 @@
-# Centraldrinks - Sistema POS
+# Club 22 - Sistema POS
 
-Sistema de gestión y punto de venta para Centraldrinks. **100% JavaScript** (sin TypeScript).
+Sistema de gestión y punto de venta para Club 22. **100% JavaScript** (sin TypeScript).
 
 - **frontend/** - SPA en React 18 + Vite + Tailwind CSS v4 (recreación del diseño de Figma).
 - **backend/** - API REST en Node.js + Express + Drizzle ORM con base de datos Turso (libSQL) y autenticación JWT.

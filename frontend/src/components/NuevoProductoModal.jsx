@@ -8,6 +8,7 @@ export function NuevoProductoModal({ isOpen, onClose, onGuardar, productoEditand
   const [precioMesa, setPrecioMesa] = useState('');
   const [precioMostrador, setPrecioMostrador] = useState('');
   const [stockInicial, setStockInicial] = useState('');
+  const [stockMinimo, setStockMinimo] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -18,6 +19,7 @@ export function NuevoProductoModal({ isOpen, onClose, onGuardar, productoEditand
         setPrecioMesa(productoEditando.precioMesa.toString());
         setPrecioMostrador(productoEditando.precioMostrador.toString());
         setStockInicial(productoEditando.stock.toString());
+        setStockMinimo(productoEditando.stockMinimo?.toString() || '5');
       } else {
         setNombre('');
         setCategoriaId(categorias[0]?.id ? String(categorias[0].id) : '');
@@ -25,6 +27,7 @@ export function NuevoProductoModal({ isOpen, onClose, onGuardar, productoEditand
         setPrecioMesa('');
         setPrecioMostrador('');
         setStockInicial('');
+        setStockMinimo('');
       }
     }
   }, [isOpen, productoEditando, categorias]);
@@ -46,6 +49,7 @@ export function NuevoProductoModal({ isOpen, onClose, onGuardar, productoEditand
       precioMesa: parseFloat(precioMesa),
       precioMostrador: parseFloat(precioMostrador),
       stock: parseInt(stockInicial, 10),
+      stockMinimo: stockMinimo ? parseInt(stockMinimo, 10) : 5,
     });
   };
 
@@ -140,18 +144,33 @@ export function NuevoProductoModal({ isOpen, onClose, onGuardar, productoEditand
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Stock Inicial</label>
-            <input
-              type="number"
-              value={stockInicial}
-              onChange={(e) => setStockInicial(e.target.value)}
-              className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
-              placeholder="0"
-              min="0"
-              step="1"
-              disabled={guardando}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Stock Inicial</label>
+              <input
+                type="number"
+                value={stockInicial}
+                onChange={(e) => setStockInicial(e.target.value)}
+                className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+                placeholder="0"
+                min="0"
+                step="1"
+                disabled={guardando}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Stock Mínimo</label>
+              <input
+                type="number"
+                value={stockMinimo}
+                onChange={(e) => setStockMinimo(e.target.value)}
+                className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+                placeholder="5"
+                min="0"
+                step="1"
+                disabled={guardando}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">

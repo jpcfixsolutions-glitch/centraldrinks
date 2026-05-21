@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
-import { db } from '../services/db.js';
-import { productos, categorias } from '../models/schema.js';
+import * as productosService from '../services/productos.service.js';
 
 const productoSchema = z.object({
   nombre: z.string().min(1),
@@ -10,28 +8,14 @@ const productoSchema = z.object({
   precioMesa: z.number().nonnegative().default(0),
   precioMostrador: z.number().nonnegative().default(0),
   stock: z.number().int().nonnegative().default(0),
+  stockMinimo: z.number().int().nonnegative().optional(),
   imagen: z.string().url().nullable().optional(),
 });
 
 const productoUpdateSchema = productoSchema.partial();
 
 export async function listar(_req, res) {
-  const items = await db
-    .select({
-      id: productos.id,
-      nombre: productos.nombre,
-      categoriaId: productos.categoriaId,
-      categoria: categorias.nombre,
-      costoUnitario: productos.costoUnitario,
-      precioMesa: productos.precioMesa,
-      precioMostrador: productos.precioMostrador,
-      stock: productos.stock,
-      imagen: productos.imagen,
-      activo: productos.activo,
-    })
-    .from(productos)
-    .leftJoin(categorias, eq(productos.categoriaId, categorias.id));
-  res.json(items);
+  res.json(await productosService.listar());
 }
 
 export async function crear(req, res) {
@@ -39,22 +23,20 @@ export async function crear(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
-  const [creado] = await db.insert(productos).values(parsed.data).returning();
+  const creado = await productosService.crear(parsed.data);
   res.status(201).json(creado);
 }
 
 export async function actualizar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
   const parsed = productoUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
-  const [actualizado] = await db
-    .update(productos)
-    .set(parsed.data)
-    .where(eq(productos.id, id))
-    .returning();
+
+  const actualizado = await productosService.actualizar(id, parsed.data);
   if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json(actualizado);
 }
@@ -62,7 +44,8 @@ export async function actualizar(req, res) {
 export async function eliminar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
-  const [borrado] = await db.delete(productos).where(eq(productos.id, id)).returning();
-  if (!borrado) return res.status(404).json({ error: 'Producto no encontrado' });
+
+  const ok = await productosService.eliminar(id);
+  if (!ok) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json({ ok: true });
 }

@@ -208,12 +208,12 @@ export default function App() {
   });
 
   const Sidebar = ({ active }) => (
-    <aside className="fixed inset-y-0 left-0 z-50 w-16 bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-4 shrink-0">
+    <aside className="fixed inset-y-0 left-0 z-50 w-16 h-screen bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-4">
       <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
         C22
       </div>
 
-      <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2 overflow-y-auto flex-1 min-h-0">
+      <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2 flex-1">
         <button
           onClick={() => setVistaActual('home')}
           className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
@@ -274,6 +274,9 @@ export default function App() {
             <Archive className="w-5 h-5" />
           </button>
         )}
+      </nav>
+
+      <div className="shrink-0 flex flex-col items-center gap-2 w-full px-2 pt-3 border-t border-zinc-800">
         {puedeAccederConfiguracion && (
           <button
             onClick={() => setVistaActual('configuracion')}
@@ -287,12 +290,12 @@ export default function App() {
         )}
         <button
           onClick={handleLogout}
-          className="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center hover:bg-red-600 transition-colors text-zinc-400 hover:text-white"
+          className="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center hover:bg-red-600/20 transition-colors text-zinc-400 hover:text-red-400"
           title="Cerrar sesión"
         >
           <LogOut className="w-5 h-5" />
         </button>
-      </nav>
+      </div>
     </aside>
   );
 

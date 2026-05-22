@@ -12,7 +12,8 @@
     "db:seed-usuarios": "node src/db/seed-usuarios.js",
     "db:seed-categorias": "node src/db/seed-categorias.js",
     "db:fix-stock": "node src/db/fix-stock-negativo.js",
-    "db:reset-cajas": "node src/db/reset-cajas.js"
+    "db:reset-cajas": "node src/db/reset-cajas.js",
+    "db:reset-historial": "node src/db/reset-historial.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

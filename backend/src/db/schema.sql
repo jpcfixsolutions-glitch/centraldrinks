@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS cierres_caja (
   empleado         TEXT    NOT NULL,
   efectivo_inicial REAL    NOT NULL DEFAULT 0,
   fecha_apertura   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  abierta          INTEGER NOT NULL DEFAULT 1 CHECK (abierta IN (0, 1)),
+  abierta          INTEGER NOT NULL DEFAULT 0 CHECK (abierta IN (0, 1)),
   cantidad_ventas  INTEGER NOT NULL DEFAULT 0,
   ingreso_total    REAL    NOT NULL DEFAULT 0,
   ingreso_efectivo REAL    NOT NULL DEFAULT 0,

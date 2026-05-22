@@ -9,7 +9,7 @@ export const cierresCaja = sqliteTable('cierres_caja', {
   empleado: text('empleado').notNull(),
   efectivoInicial: real('efectivo_inicial').notNull().default(0),
   fechaApertura: text('fecha_apertura').notNull().default(sql`CURRENT_TIMESTAMP`),
-  abierta: integer('abierta', { mode: 'boolean' }).notNull().default(true),
+  abierta: integer('abierta', { mode: 'boolean' }).notNull().default(false),
   cantidadVentas: integer('cantidad_ventas').notNull().default(0),
   ingresoTotal: real('ingreso_total').notNull().default(0),
   ingresoEfectivo: real('ingreso_efectivo').notNull().default(0),

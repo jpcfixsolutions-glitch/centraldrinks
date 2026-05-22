@@ -13,6 +13,14 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/', (_req, res) => {
+  res.json({
+    ok: true,
+    name: 'centraldrinks-backend',
+    message: 'API activa. Probá GET /health o POST /api/auth/login',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, name: 'centraldrinks-backend' });
 });

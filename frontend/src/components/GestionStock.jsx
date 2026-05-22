@@ -14,6 +14,7 @@ export function GestionStock({
   const [busqueda, setBusqueda] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
   const [showNuevoProductoModal, setShowNuevoProductoModal] = useState(false);
+  const [categoriaInicialModal, setCategoriaInicialModal] = useState(null);
   const [productoEditando, setProductoEditando] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [guardando, setGuardando] = useState(false);
@@ -36,6 +37,7 @@ export function GestionStock({
         precioMostrador: data.precioMostrador,
         stock: data.stock,
         stockMinimo: data.stockMinimo,
+        componentes: data.componentes || [], // Array de { productoId, cantidad }
       };
       if (productoEditando) {
         await onActualizarProducto(productoEditando.id, payload);
@@ -66,9 +68,16 @@ export function GestionStock({
     }
   };
 
+  const abrirModalProducto = (categoriaInicial = null) => {
+    setProductoEditando(null);
+    setCategoriaInicialModal(categoriaInicial);
+    setShowNuevoProductoModal(true);
+  };
+
   const handleCerrarModal = () => {
     setShowNuevoProductoModal(false);
     setProductoEditando(null);
+    setCategoriaInicialModal(null);
   };
 
   const getCategoriaColor = (categoria) => {
@@ -108,16 +117,22 @@ export function GestionStock({
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setProductoEditando(null);
-                setShowNuevoProductoModal(true);
-              }}
-              className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Nuevo Producto
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => abrirModalProducto()}
+                className="bg-zinc-800 hover:bg-zinc-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2 border border-zinc-700"
+              >
+                <Plus className="w-5 h-5" />
+                Nuevo Producto
+              </button>
+              <button
+                onClick={() => abrirModalProducto('Promociones')}
+                className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Nueva Promoción
+              </button>
+            </div>
           </div>
           {errorMsg && (
             <div className="mt-2 bg-red-900/40 border border-red-700 text-red-200 rounded-lg px-4 py-3 text-sm">
@@ -175,7 +190,14 @@ export function GestionStock({
                     const estado = getEstadoStock(producto.stock, producto.stockMinimo);
                     return (
                       <tr key={producto.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
-                        <td className="px-6 py-4">{producto.nombre}</td>
+                        <td className="px-6 py-4">
+                          <div>{producto.nombre}</div>
+                          {producto.componentes?.length > 0 && (
+                            <p className="text-xs text-zinc-500 mt-1">
+                              Incluye: {producto.componentes.map((c) => `${c.cantidad}x ${c.nombre}`).join(', ')}
+                            </p>
+                          )}
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`text-sm font-medium ${getCategoriaColor(producto.categoria)}`}>
                             • {producto.categoria || 'Sin categoría'}
@@ -235,7 +257,9 @@ export function GestionStock({
         onGuardar={handleGuardarProducto}
         productoEditando={productoEditando}
         categorias={categorias}
+        productos={productos}
         guardando={guardando}
+        categoriaInicial={categoriaInicialModal}
       />
     </>
   );

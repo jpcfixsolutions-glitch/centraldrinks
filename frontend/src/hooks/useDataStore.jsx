@@ -245,10 +245,11 @@ export function useDataStore({ enabled }) {
   const crearBotellaBarra = useCallback(
     async (data) => {
       const nueva = await botellasBarraApi.crear(data);
+      await recargarProductos();
       setBotellasBarra((prev) => [...prev, nueva]);
       return nueva;
     },
-    []
+    [recargarProductos]
   );
 
   const eliminarBotellaBarra = useCallback(async (id) => {

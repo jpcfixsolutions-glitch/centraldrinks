@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "db:migrate": "node src/db/migrate.js",
     "db:migrate-caja": "node src/db/migrate-caja-sesion.js",
-    "db:seed-usuarios": "node src/db/seed-usuarios.js"
+    "db:seed-usuarios": "node src/db/seed-usuarios.js",
+    "db:seed-categorias": "node src/db/seed-categorias.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

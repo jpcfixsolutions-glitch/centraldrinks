@@ -71,7 +71,10 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
               <div className="flex-1">
                 <p className="font-medium mb-1">{producto.nombre}</p>
                 <p className="text-sm text-zinc-400">{producto.categoria || 'Sin categoría'}</p>
-                <p className="text-xs text-zinc-500 mt-1">Stock: {producto.stock}</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Stock: {producto.stock}
+                  {producto.componentes?.length > 0 && ' (según componentes)'}
+                </p>
               </div>
 
               <div className="flex items-center gap-4">

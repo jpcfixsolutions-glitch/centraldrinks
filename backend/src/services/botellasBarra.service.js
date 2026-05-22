@@ -1,6 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { botellasBarra } from '../models/botellasBarra.model.js';
+import { descontarStock } from './productos.service.js';
 
 function toPublic(b) {
   return {
@@ -17,6 +18,8 @@ export async function listar() {
 }
 
 export async function crear({ productoId, nombreProducto }) {
+  await descontarStock(productoId, 1);
+
   const [nueva] = await db
     .insert(botellasBarra)
     .values({ productoId, nombreProducto })

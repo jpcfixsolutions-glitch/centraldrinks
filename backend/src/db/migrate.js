@@ -31,6 +31,16 @@ async function run() {
       // columna ya existe
     }
   }
+
+  const categoriasIniciales = ['Vinos', 'Tapas', 'Cervezas', 'Bebidas', 'Promociones'];
+  console.log('[migrate] Asegurando categorías iniciales...');
+  for (const nombre of categoriasIniciales) {
+    await client.execute({
+      sql: 'INSERT OR IGNORE INTO categorias (nombre) VALUES (?)',
+      args: [nombre],
+    });
+  }
+
   try {
     await client.execute(
       "UPDATE cierres_caja SET fecha_apertura = fecha_cierre WHERE fecha_apertura IS NULL AND fecha_cierre IS NOT NULL"
@@ -44,6 +54,7 @@ async function run() {
   console.log('[migrate] Listo. Tablas e índices aplicados.');
   console.log('[migrate] Si falla "Abrir Caja", ejecutá: npm run db:migrate-caja');
   console.log('[migrate] Ejecutá npm run db:seed-usuarios para crear admin y empleado.');
+  console.log('[migrate] Las categorías (incl. Promociones) se crean automáticamente.');
   process.exit(0);
 }
 

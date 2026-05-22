@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, DollarSign, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
+import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
 import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
@@ -58,26 +58,20 @@ export default function App() {
     return store.ventas.filter((v) => v.cierreCajaId === sesionId);
   }, [store.ventas, store.cajaActual?.sesion?.id, cajaAbierta]);
 
-  const totalVentasAbiertas = useMemo(
-    () => ventasAbiertas.reduce((sum, v) => sum + v.total, 0),
-    [ventasAbiertas]
-  );
-
-  const totalVentasMesa = useMemo(
-    () =>
-      ventasAbiertas
-        .filter((v) => v.tipo === 'mesa')
-        .reduce((sum, v) => sum + v.total, 0),
-    [ventasAbiertas]
-  );
-
-  const totalVentasMostrador = useMemo(
-    () =>
-      ventasAbiertas
-        .filter((v) => v.tipo === 'mostrador')
-        .reduce((sum, v) => sum + v.total, 0),
-    [ventasAbiertas]
-  );
+  const handleCerrarCaja = async () => {
+    const msgResumen = resumenCaja
+      ? `\n\nArqueo esperado:\n• Efectivo en caja: $${resumenCaja.efectivoEsperado.toLocaleString()}\n• Virtual/Transferencias: $${resumenCaja.ingresoVirtual.toLocaleString()}`
+      : '';
+    const total = ventasAbiertas.reduce((sum, v) => sum + v.total, 0);
+    if (
+      !confirm(
+        `¿Cerrar caja con ${ventasAbiertas.length} ventas ($${total.toLocaleString()})?${msgResumen}\n\nContá el efectivo y verificá que coincida.`
+      )
+    ) {
+      return;
+    }
+    await store.cerrarCajaActual();
+  };
 
   const totalGastosFijos = useMemo(
     () => store.gastosFijos.reduce((sum, g) => sum + g.monto, 0),
@@ -118,17 +112,6 @@ export default function App() {
   const handleAbrirBotella = async (producto) => {
     setProcesandoBotella(true);
     try {
-      const payload = {
-        nombre: producto.nombre,
-        categoriaId: producto.categoriaId || null,
-        costoUnitario: producto.costoUnitario,
-        precioMesa: producto.precioMesa,
-        precioMostrador: producto.precioMostrador,
-        stock: producto.stock - 1,
-        stockMinimo: producto.stockMinimo || 5
-      };
-      await store.actualizarProducto(producto.id, payload);
-
       await store.crearBotellaBarra({
         productoId: producto.id,
         nombreProducto: producto.nombre,
@@ -343,8 +326,16 @@ export default function App() {
                   <Lock className="w-8 h-8 text-red-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Caja Cerrada</h2>
-                <p className="text-zinc-400 mb-6">Pide al administrador que abra la caja para poder acceder al punto de venta.</p>
-                <button onClick={() => setVistaActual('home')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">Volver al Inicio</button>
+                <p className="text-zinc-400 mb-6">Abrí la caja para poder acceder al punto de venta.</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setShowAbrirCajaModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Abrir Caja
+                  </button>
+                  <button onClick={() => setVistaActual('home')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">Volver al Inicio</button>
+                </div>
               </div>
             </div>
           )}
@@ -395,8 +386,16 @@ export default function App() {
                   <Lock className="w-8 h-8 text-red-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Caja Cerrada</h2>
-                <p className="text-zinc-400 mb-6">Pide al administrador que abra la caja para poder acceder a la atención de mesas.</p>
-                <button onClick={() => setVistaActual('home')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">Volver al Inicio</button>
+                <p className="text-zinc-400 mb-6">Abrí la caja para poder acceder a la atención de mesas.</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setShowAbrirCajaModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Abrir Caja
+                  </button>
+                  <button onClick={() => setVistaActual('home')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">Volver al Inicio</button>
+                </div>
               </div>
             </div>
           )}
@@ -456,7 +455,7 @@ export default function App() {
               <Package className="w-5 h-5" />
               Retirar
             </button>
-            {esAdministrador && !cajaAbierta && (
+            {!cajaAbierta && (
               <button
                 onClick={() => setShowAbrirCajaModal(true)}
                 className="bg-green-500 hover:bg-green-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-green-500/20"
@@ -465,9 +464,9 @@ export default function App() {
                 Abrir Caja
               </button>
             )}
-            {esAdministrador && cajaAbierta && (
+            {cajaAbierta && (
               <button
-                onClick={() => setVistaActual('cajas')}
+                onClick={() => (esAdministrador ? setVistaActual('cajas') : handleCerrarCaja())}
                 className="bg-red-500 hover:bg-red-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-red-500/20"
               >
                 <Lock className="w-5 h-5" />
@@ -552,40 +551,12 @@ export default function App() {
               </div>
 
               {/* Tarjeta 4 */}
-              <div className="bg-zinc-900/50 rounded-xl p-6 border border-zinc-800 flex flex-col h-[140px] relative">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
-                      <Wine className="w-4 h-4 text-purple-500" />
-                    </div>
-                    <p className="text-zinc-400 text-sm font-medium">En Barra</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowAbrirBotellaModal(true)}
-                    className="w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-                  {store.botellasBarra.length === 0 ? (
-                    <p className="text-sm text-zinc-500">No hay botellas</p>
-                  ) : (
-                    store.botellasBarra.map(b => (
-                      <div key={b.id} className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-3 py-1.5 border border-zinc-700/50">
-                        <span className="text-sm truncate mr-2 font-medium text-zinc-300" title={b.nombre}>{b.nombre}</span>
-                        <button
-                          onClick={() => handleVaciarBotella(b.id)}
-                          className="text-zinc-500 hover:text-green-500 transition-colors p-1"
-                          title="Marcar como vacía"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <PanelBotellasBarra
+                botellas={store.botellasBarra}
+                onAbrir={() => setShowAbrirBotellaModal(true)}
+                onVaciar={handleVaciarBotella}
+                compact
+              />
             </div>
 
             {cajaAbierta && resumenCaja && (
@@ -774,16 +745,30 @@ export default function App() {
               )}
 
               {!cajaAbierta && (
-                <div className="mb-8 bg-amber-900/20 border border-amber-700/50 rounded-xl p-4 flex items-center gap-4">
-                  <Lock className="w-8 h-8 text-amber-500 shrink-0" />
-                  <div>
-                    <h3 className="text-amber-500 font-bold">Caja cerrada</h3>
-                    <p className="text-sm text-amber-200/70">
-                      El administrador debe abrir la caja para comenzar el turno y ver el arqueo.
-                    </p>
+                <div className="mb-8 bg-amber-900/20 border border-amber-700/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <Lock className="w-8 h-8 text-amber-500 shrink-0" />
+                    <div>
+                      <h3 className="text-amber-500 font-bold">Caja cerrada</h3>
+                      <p className="text-sm text-amber-200/70">
+                        Abrí la caja para comenzar el turno y ver el arqueo.
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => setShowAbrirCajaModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors whitespace-nowrap"
+                  >
+                    Abrir Caja
+                  </button>
                 </div>
               )}
+
+              <PanelBotellasBarra
+                botellas={store.botellasBarra}
+                onAbrir={() => setShowAbrirBotellaModal(true)}
+                onVaciar={handleVaciarBotella}
+              />
 
               <h2 className="text-lg font-bold text-white mb-4">Acciones Rápidas</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
@@ -801,31 +786,6 @@ export default function App() {
                   <Receipt className="w-10 h-10" />
                   Venta Mostrador
                 </button>
-              </div>
-
-              <h2 className="text-lg font-bold text-white mb-4">Resumen de Turno</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-zinc-900/50 rounded-xl p-6 border border-zinc-800 relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-2 relative z-10">
-                    <p className="text-zinc-400 text-sm font-medium">Total Ventas (caja actual)</p>
-                    <DollarSign className="w-5 h-5 text-red-500" />
-                  </div>
-                  <p className="text-4xl font-bold relative z-10">${(totalVentasAbiertas || 0).toLocaleString()}</p>
-                </div>
-                <div className="bg-zinc-900/50 rounded-xl p-6 border border-zinc-800 relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-2 relative z-10">
-                    <p className="text-zinc-400 text-sm font-medium">Ventas Mesa</p>
-                    <Utensils className="w-5 h-5 text-red-500" />
-                  </div>
-                  <p className="text-4xl font-bold relative z-10">${(totalVentasMesa || 0).toLocaleString()}</p>
-                </div>
-                <div className="bg-zinc-900/50 rounded-xl p-6 border border-zinc-800 relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-2 relative z-10">
-                    <p className="text-zinc-400 text-sm font-medium">Ventas Mostrador</p>
-                    <ShoppingCart className="w-5 h-5 text-red-500" />
-                  </div>
-                  <p className="text-4xl font-bold relative z-10">${(totalVentasMostrador || 0).toLocaleString()}</p>
-                </div>
               </div>
             </>
           )}
@@ -855,13 +815,107 @@ export default function App() {
     <div className="min-h-screen bg-black text-white flex">
       <Sidebar active={vistaActual} />
       {contenido}
-      {esAdministrador && (
-        <AbrirCajaModal
-          isOpen={showAbrirCajaModal}
-          onClose={() => setShowAbrirCajaModal(false)}
-          onConfirmar={store.abrirCaja}
-        />
-      )}
+      <AbrirCajaModal
+        isOpen={showAbrirCajaModal}
+        onClose={() => setShowAbrirCajaModal(false)}
+        onConfirmar={store.abrirCaja}
+      />
+    </div>
+  );
+}
+
+function PanelBotellasBarra({ botellas, onAbrir, onVaciar, compact = false }) {
+  if (compact) {
+    return (
+      <div className="bg-zinc-900/50 rounded-xl p-6 border border-zinc-800 flex flex-col h-[140px] relative">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
+              <Wine className="w-4 h-4 text-purple-500" />
+            </div>
+            <p className="text-zinc-400 text-sm font-medium">En Barra ({botellas.length})</p>
+          </div>
+          <button
+            onClick={onAbrir}
+            className="w-7 h-7 rounded bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors shrink-0"
+            title="Abrir botella"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+          {botellas.length === 0 ? (
+            <p className="text-sm text-zinc-500">No hay botellas</p>
+          ) : (
+            botellas.map((b) => (
+              <div
+                key={b.id}
+                className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-3 py-1.5 border border-zinc-700/50"
+              >
+                <span className="text-sm truncate mr-2 font-medium text-zinc-300" title={b.nombre}>
+                  {b.nombre}
+                </span>
+                <button
+                  onClick={() => onVaciar(b.id)}
+                  className="text-zinc-500 hover:text-green-500 transition-colors p-1"
+                  title="Marcar como vacía"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-10 bg-zinc-900/50 rounded-xl p-6 border border-zinc-800">
+      <div className="flex items-center justify-between mb-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+            <Wine className="w-5 h-5 text-purple-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Botellas en Barra</h2>
+            <p className="text-sm text-zinc-500">
+              {botellas.length === 0
+                ? 'No hay botellas abiertas'
+                : `${botellas.length} botella${botellas.length === 1 ? '' : 's'} abierta${botellas.length === 1 ? '' : 's'}`}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onAbrir}
+          className="bg-purple-600 hover:bg-purple-700 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-medium whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          Abrir Botella
+        </button>
+      </div>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {botellas.length === 0 ? (
+          <p className="text-sm text-zinc-500 text-center py-4">Abrí una botella para llevar el control de la barra.</p>
+        ) : (
+          botellas.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-4 py-3 border border-zinc-700/50"
+            >
+              <span className="font-medium text-zinc-200">{b.nombre}</span>
+              <button
+                onClick={() => onVaciar(b.id)}
+                className="text-zinc-400 hover:text-green-500 transition-colors flex items-center gap-2 text-sm"
+                title="Marcar como vacía"
+              >
+                <Check className="w-4 h-4" />
+                Vacía
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -77,6 +77,18 @@ CREATE TABLE IF NOT EXISTS productos (
 CREATE INDEX IF NOT EXISTS idx_productos_categoria ON productos(categoria_id);
 
 -- ---------------------------------------------------------------------
+-- COMPONENTES DE PROMOCIONES (Productos compuestos)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS promocion_items (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  promocion_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  producto_id  INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  cantidad     INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_promocion_items_promocion ON promocion_items(promocion_id);
+
+-- ---------------------------------------------------------------------
 -- MESAS
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mesas (

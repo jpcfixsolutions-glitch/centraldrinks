@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import * as productosService from '../services/productos.service.js';
 
+const componenteSchema = z.object({
+  productoId: z.number().int().positive(),
+  cantidad: z.number().int().positive().default(1),
+});
+
 const productoSchema = z.object({
   nombre: z.string().min(1),
   categoriaId: z.number().int().nullable().optional(),
@@ -10,6 +15,7 @@ const productoSchema = z.object({
   stock: z.number().int().nonnegative().default(0),
   stockMinimo: z.number().int().nonnegative().optional(),
   imagen: z.string().url().nullable().optional(),
+  componentes: z.array(componenteSchema).optional(),
 });
 
 const productoUpdateSchema = productoSchema.partial();
@@ -23,8 +29,12 @@ export async function crear(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
-  const creado = await productosService.crear(parsed.data);
-  res.status(201).json(creado);
+  try {
+    const creado = await productosService.crear(parsed.data);
+    res.status(201).json(creado);
+  } catch (err) {
+    res.status(err.status ?? 500).json({ error: err.message ?? 'Error al crear producto' });
+  }
 }
 
 export async function actualizar(req, res) {
@@ -36,9 +46,13 @@ export async function actualizar(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
 
-  const actualizado = await productosService.actualizar(id, parsed.data);
-  if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
-  res.json(actualizado);
+  try {
+    const actualizado = await productosService.actualizar(id, parsed.data);
+    if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json(actualizado);
+  } catch (err) {
+    res.status(err.status ?? 500).json({ error: err.message ?? 'Error al actualizar producto' });
+  }
 }
 
 export async function eliminar(req, res) {

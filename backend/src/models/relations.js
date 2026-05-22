@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import { usuarios } from './usuarios.model.js';
 import { categorias } from './categorias.model.js';
 import { productos } from './productos.model.js';
+import { promocionItems } from './promocionItems.model.js';
 import { cierresCaja } from './cierresCaja.model.js';
 import { ventas } from './ventas.model.js';
 import { ventaItems } from './ventaItems.model.js';
@@ -25,6 +26,21 @@ export const productosRelations = relations(productos, ({ one, many }) => ({
   categoria: one(categorias, { fields: [productos.categoriaId], references: [categorias.id] }),
   ventaItems: many(ventaItems),
   botellasBarra: many(botellasBarra),
+  componentesPromocion: many(promocionItems, { relationName: 'promocionComponentes' }),
+  promocionesQueIncluyen: many(promocionItems, { relationName: 'productoEnPromocion' }),
+}));
+
+export const promocionItemsRelations = relations(promocionItems, ({ one }) => ({
+  promocion: one(productos, {
+    fields: [promocionItems.promocionId],
+    references: [productos.id],
+    relationName: 'promocionComponentes',
+  }),
+  producto: one(productos, {
+    fields: [promocionItems.productoId],
+    references: [productos.id],
+    relationName: 'productoEnPromocion',
+  }),
 }));
 
 export const cierresCajaRelations = relations(cierresCaja, ({ one, many }) => ({

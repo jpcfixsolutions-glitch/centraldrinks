@@ -1,10 +1,10 @@
-import { desc, eq, sql, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
 import { ventaPagos } from '../models/ventaPagos.model.js';
-import { productos } from '../models/productos.model.js';
 import { idSesionAbierta } from './cierresCaja.service.js';
+import { descontarStockVenta } from './productos.service.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -89,14 +89,7 @@ export async function crear(data, usuarioId) {
       }))
     );
 
-    for (const item of data.items) {
-      if (item.productoId) {
-        await db
-          .update(productos)
-          .set({ stock: sql`${productos.stock} - ${item.cantidad}` })
-          .where(eq(productos.id, item.productoId));
-      }
-    }
+    await descontarStockVenta(data.items);
   }
 
   if (data.pagos?.length > 0) {

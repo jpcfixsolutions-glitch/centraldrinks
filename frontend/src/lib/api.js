@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? '/api';
+const API_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? '/api')
+  : '/api';
 
 const TOKEN_KEY = 'centraldrinks_token';
 
@@ -56,7 +58,9 @@ export async function apiFetch(path, options = {}) {
     const message =
       data && typeof data === 'object' && typeof data.error === 'string'
         ? data.error
-        : `Error ${response.status}`;
+        : response.status === 404
+          ? `Ruta no encontrada (${API_URL}${path}). Revisá VITE_API_URL y el deploy del backend.`
+          : `Error ${response.status}`;
     throw new ApiError(message, response.status);
   }
 

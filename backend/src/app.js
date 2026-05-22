@@ -26,6 +26,8 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', routes);
+// En Vercel a veces llega la ruta sin el prefijo /api
+app.use(routes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

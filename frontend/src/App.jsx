@@ -368,6 +368,7 @@ export default function App() {
                 mesas={store.mesas}
                 cargaMesas={cargaMesas}
                 ventasMesa={ventasAbiertas.filter((v) => v.tipo === 'mesa')}
+                metodosPago={store.metodosPago}
                 onAbrirMesa={handleAbrirMesa}
                 onCrearMesa={store.crearMesa}
                 onEliminarMesa={store.eliminarMesa}
@@ -423,6 +424,7 @@ export default function App() {
           ventasAbiertas={ventasAbiertas}
           cajaActual={store.cajaActual}
           onCerrarCaja={store.cerrarCajaActual}
+          metodosPago={store.metodosPago}
         />
     );
   } else if (vistaActual === 'stats') {

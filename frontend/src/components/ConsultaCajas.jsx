@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, Eye, DollarSign, Receipt, Lock, Wallet, CreditCard } from 'lucide-react';
 import { cajasApi } from '../lib/api.js';
 import { CerrarCajaModal } from './CerrarCajaModal.jsx';
+import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
+import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 
-export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja }) {
+export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja, metodosPago }) {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [empleadoFiltro, setEmpleadoFiltro] = useState('todos');
   const [cajaSeleccionada, setCajaSeleccionada] = useState(null);
@@ -197,7 +199,7 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
       </div>
 
       {cajaSeleccionada != null && (
-        <DetalleCajaModal cierreId={cajaSeleccionada} onClose={() => setCajaSeleccionada(null)} />
+        <DetalleCajaModal cierreId={cajaSeleccionada} onClose={() => setCajaSeleccionada(null)} metodosPago={metodosPago} />
       )}
 
       <CerrarCajaModal
@@ -213,10 +215,11 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
   );
 }
 
-function DetalleCajaModal({ cierreId, onClose }) {
+function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
   const [cierre, setCierre] = useState(null);
   const [tipoVista, setTipoVista] = useState('mostrador');
   const [error, setError] = useState(null);
+  const { imprimirVenta, TicketOculto } = useImprimirVentaTicket(metodosPago);
 
   useEffect(() => {
     let cancelado = false;
@@ -485,9 +488,12 @@ function DetalleCajaModal({ cierreId, onClose }) {
                           </span>
                         )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold">${venta.total.toLocaleString()}</p>
-                        <p className="text-sm text-zinc-400 uppercase">{venta.metodoPago}</p>
+                      <div className="text-right flex items-center gap-3">
+                        <div>
+                          <p className="text-2xl font-bold">${venta.total.toLocaleString()}</p>
+                          <p className="text-sm text-zinc-400 uppercase">{venta.metodoPago}</p>
+                        </div>
+                        <BotonImprimirVenta onClick={() => imprimirVenta(venta)} />
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -532,6 +538,8 @@ function DetalleCajaModal({ cierreId, onClose }) {
           </button>
         </div>
       </div>
+
+      <TicketOculto />
     </div>
   );
 }

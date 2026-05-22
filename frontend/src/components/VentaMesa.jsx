@@ -3,6 +3,8 @@ import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle } from 'lucide-react';
 import { AgregarProductoMesaModal } from './AgregarProductoMesaModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
+import { ConfirmarImprimirTicketModal } from './ConfirmarImprimirTicketModal.jsx';
+import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
 
 export function VentaMesa({
@@ -17,16 +19,9 @@ export function VentaMesa({
   const [carrito, setCarrito] = useState(cargaInicial || []);
   const [showAgregarModal, setShowAgregarModal] = useState(false);
   const [showCerrarMesaModal, setShowCerrarMesaModal] = useState(false);
-  const [ticketPostVenta, setTicketPostVenta] = useState(null);
+  const [ventaRecienRegistrada, setVentaRecienRegistrada] = useState(null);
   const ticketPreCobroRef = useRef(null);
-  const ticketPostVentaRef = useRef(null);
-
-  useEffect(() => {
-    if (ticketPostVenta && ticketPostVentaRef.current) {
-      imprimirTicket(ticketPostVentaRef.current);
-      setTicketPostVenta(null);
-    }
-  }, [ticketPostVenta]);
+  const { imprimirVenta, TicketOculto } = useImprimirVentaTicket(metodosPago);
 
   useEffect(() => {
     onActualizarCarga(numeroMesa, carrito);
@@ -115,11 +110,15 @@ export function VentaMesa({
     };
     const creada = await onConfirmarVenta(numeroMesa, venta);
     setShowCerrarMesaModal(false);
-    setTicketPostVenta({
-      items: venta.items,
-      descuento,
-      pagos: pagos.map((p) => ({ metodo: p.metodoPago, monto: p.monto })),
+    setVentaRecienRegistrada({
+      venta: {
+        ...venta,
+        codigo: creada?.codigo,
+        fecha: creada?.fecha ?? new Date().toISOString(),
+        pagos: pagos.map((p) => ({ metodoPago: p.metodoPago, monto: p.monto, recargo: p.recargo })),
+      },
       codigo: creada?.codigo,
+      total: totalACobrar,
     });
   };
 
@@ -245,6 +244,14 @@ export function VentaMesa({
         />
       )}
 
+      <ConfirmarImprimirTicketModal
+        isOpen={!!ventaRecienRegistrada}
+        onClose={() => setVentaRecienRegistrada(null)}
+        onImprimir={() => ventaRecienRegistrada && imprimirVenta(ventaRecienRegistrada.venta)}
+        codigo={ventaRecienRegistrada?.codigo}
+        total={ventaRecienRegistrada?.total}
+      />
+
       <div className="hidden" aria-hidden="true">
         <div ref={ticketPreCobroRef}>
           <TicketCobro
@@ -257,20 +264,9 @@ export function VentaMesa({
             numeroMesa={numeroMesa}
           />
         </div>
-        {ticketPostVenta && (
-          <div ref={ticketPostVentaRef}>
-            <TicketCobro
-              items={ticketPostVenta.items}
-              descuento={ticketPostVenta.descuento}
-              pagos={ticketPostVenta.pagos}
-              metodosPago={metodosPago}
-              tipo="mesa"
-              numeroMesa={numeroMesa}
-              codigo={ticketPostVenta.codigo}
-            />
-          </div>
-        )}
       </div>
+
+      <TicketOculto />
     </>
   );
 }

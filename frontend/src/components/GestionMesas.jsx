@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { ArrowLeft, Plus, Calendar, Trash2 } from 'lucide-react';
+import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
+import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 
 export function GestionMesas({
   onVolver,
   mesas,
   cargaMesas,
   ventasMesa,
+  metodosPago,
   onAbrirMesa,
   onCrearMesa,
   onEliminarMesa,
@@ -15,6 +18,7 @@ export function GestionMesas({
   const [mesaAEliminar, setMesaAEliminar] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [procesando, setProcesando] = useState(false);
+  const { imprimirVenta, TicketOculto } = useImprimirVentaTicket(metodosPago);
 
   const getEstadoMesa = (numeroMesa) => {
     const productos = cargaMesas[numeroMesa];
@@ -198,6 +202,7 @@ export function GestionMesas({
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Mesa</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Fecha y Hora</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Total</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,6 +212,9 @@ export function GestionMesas({
                       <td className="px-6 py-4 text-zinc-400">{formatearFecha(venta.fecha)}</td>
                       <td className="px-6 py-4">
                         <span className="text-green-500 font-medium">${venta.total.toLocaleString()}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <BotonImprimirVenta onClick={() => imprimirVenta(venta)} />
                       </td>
                     </tr>
                   ))}
@@ -247,6 +255,8 @@ export function GestionMesas({
           </div>
         </div>
       )}
+
+      <TicketOculto />
     </div>
   );
 }

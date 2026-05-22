@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit, Trash2, CreditCard, Tag, Building } from 'lucide-react';
+import { ConfirmarEliminacionModal } from './ConfirmarEliminacionModal.jsx';
+
+const ELIMINAR_CONFIG = {
+  metodo: {
+    titulo: 'Eliminar método de pago',
+    mensaje: 'Se quitará este método de las opciones de cobro.',
+  },
+  categoria: {
+    titulo: 'Eliminar categoría',
+    mensaje: 'Los productos asociados pueden quedar sin categoría válida.',
+  },
+  gasto: {
+    titulo: 'Eliminar gasto fijo',
+    mensaje: 'Se dejará de considerar este gasto en los cálculos mensuales.',
+  },
+};
 
 export function Configuracion({
   onVolver,
@@ -29,6 +45,7 @@ export function Configuracion({
   const [gastoFijoEditando, setGastoFijoEditando] = useState(null);
 
   const [guardando, setGuardando] = useState(false);
+  const [eliminarPendiente, setEliminarPendiente] = useState(null);
 
   const ejecutarOp = async (fn) => {
     setErrorMsg(null);
@@ -54,9 +71,16 @@ export function Configuracion({
     setShowMetodoPagoModal(true);
   };
 
-  const handleEliminarMetodoPago = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este método de pago?')) return;
-    await ejecutarOp(() => onEliminarMetodoPago(id));
+  const solicitarEliminar = (tipo, item) => {
+    setEliminarPendiente({ tipo, id: item.id, nombre: item.nombre });
+  };
+
+  const confirmarEliminacion = async () => {
+    if (!eliminarPendiente) return;
+    const { tipo, id } = eliminarPendiente;
+    if (tipo === 'metodo') await onEliminarMetodoPago(id);
+    else if (tipo === 'categoria') await onEliminarCategoria(id);
+    else if (tipo === 'gasto') await onEliminarGastoFijo(id);
   };
 
   const handleGuardarMetodoPago = async (nombre, recargo) => {
@@ -83,11 +107,6 @@ export function Configuracion({
     setShowCategoriaModal(true);
   };
 
-  const handleEliminarCategoria = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta categoría?')) return;
-    await ejecutarOp(() => onEliminarCategoria(id));
-  };
-
   const handleGuardarCategoria = async (nombre) => {
     const ok = await ejecutarOp(async () => {
       if (categoriaEditando) {
@@ -110,11 +129,6 @@ export function Configuracion({
   const handleEditarGastoFijo = (gasto) => {
     setGastoFijoEditando(gasto);
     setShowGastoFijoModal(true);
-  };
-
-  const handleEliminarGastoFijo = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este gasto fijo?')) return;
-    await ejecutarOp(() => onEliminarGastoFijo(id));
   };
 
   const handleGuardarGastoFijo = async (nombre, monto) => {
@@ -243,7 +257,7 @@ export function Configuracion({
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleEliminarMetodoPago(metodo.id)}
+                                onClick={() => solicitarEliminar('metodo', metodo)}
                                 className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -299,7 +313,7 @@ export function Configuracion({
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleEliminarCategoria(categoria.id)}
+                                onClick={() => solicitarEliminar('categoria', categoria)}
                                 className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -353,7 +367,7 @@ export function Configuracion({
                               <button onClick={() => handleEditarGastoFijo(gasto)} className="p-2 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-400 hover:text-white">
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button onClick={() => handleEliminarGastoFijo(gasto.id)} className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500">
+                              <button onClick={() => solicitarEliminar('gasto', gasto)} className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -406,6 +420,15 @@ export function Configuracion({
         }}
         onGuardar={handleGuardarGastoFijo}
         gastoEditando={gastoFijoEditando}
+      />
+
+      <ConfirmarEliminacionModal
+        isOpen={!!eliminarPendiente}
+        onClose={() => setEliminarPendiente(null)}
+        onConfirmar={confirmarEliminacion}
+        titulo={eliminarPendiente ? ELIMINAR_CONFIG[eliminarPendiente.tipo].titulo : ''}
+        mensaje={eliminarPendiente ? ELIMINAR_CONFIG[eliminarPendiente.tipo].mensaje : ''}
+        nombreEntidad={eliminarPendiente?.nombre}
       />
     </>
   );

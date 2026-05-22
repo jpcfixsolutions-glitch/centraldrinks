@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { NuevoProductoModal } from './NuevoProductoModal.jsx';
+import { ConfirmarEliminacionModal } from './ConfirmarEliminacionModal.jsx';
 
 export function GestionStock({
   onVolver,
@@ -18,6 +19,7 @@ export function GestionStock({
   const [productoEditando, setProductoEditando] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const [productoAEliminar, setProductoAEliminar] = useState(null);
 
   const productosFiltrados = productos.filter((p) => {
     const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase());
@@ -58,14 +60,10 @@ export function GestionStock({
     setShowNuevoProductoModal(true);
   };
 
-  const handleEliminarProducto = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+  const confirmarEliminarProducto = async () => {
+    if (!productoAEliminar) return;
     setErrorMsg(null);
-    try {
-      await onEliminarProducto(id);
-    } catch (err) {
-      setErrorMsg(err.message || 'Error al eliminar producto');
-    }
+    await onEliminarProducto(productoAEliminar.id);
   };
 
   const abrirModalProducto = (categoriaInicial = null) => {
@@ -226,7 +224,7 @@ export function GestionStock({
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleEliminarProducto(producto.id)}
+                              onClick={() => setProductoAEliminar(producto)}
                               className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-zinc-400 hover:text-red-500"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -260,6 +258,15 @@ export function GestionStock({
         productos={productos}
         guardando={guardando}
         categoriaInicial={categoriaInicialModal}
+      />
+
+      <ConfirmarEliminacionModal
+        isOpen={!!productoAEliminar}
+        onClose={() => setProductoAEliminar(null)}
+        onConfirmar={confirmarEliminarProducto}
+        titulo="Eliminar producto"
+        mensaje="Se quitará del catálogo y ya no estará disponible para ventas."
+        nombreEntidad={productoAEliminar?.nombre}
       />
     </>
   );

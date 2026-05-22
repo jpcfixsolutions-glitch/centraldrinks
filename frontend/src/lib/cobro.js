@@ -2,15 +2,31 @@ export function esMetodoEfectivo(nombre) {
   return (nombre || '').toLowerCase().includes('efectivo');
 }
 
+export function metodoPagoValido(nombre) {
+  return Boolean(nombre?.trim());
+}
+
 export function calcRecargoMonto(monto, recargoPorcentaje) {
   return (monto * recargoPorcentaje) / 100;
 }
 
 export function calcTotalesCobro({ totalVenta, descuento, pagos, metodosPago }) {
   const baseACobrar = totalVenta - descuento;
-  const pagoUnicoEfectivo = pagos.length === 1 && esMetodoEfectivo(pagos[0].metodo);
+  const pagosConMetodo = pagos.filter((p) => metodoPagoValido(p.metodo));
+  const pagoUnicoEfectivo =
+    pagosConMetodo.length === 1 && esMetodoEfectivo(pagosConMetodo[0].metodo);
 
   const pagosDetalle = pagos.map((pago) => {
+    if (!metodoPagoValido(pago.metodo)) {
+      return {
+        metodo: pago.metodo,
+        monto: pago.monto || 0,
+        montoBase: 0,
+        recargoPct: 0,
+        recargoMonto: 0,
+      };
+    }
+
     const metodo = metodosPago.find((m) => m.nombre === pago.metodo);
     const recargoPct = metodo?.recargo ?? 0;
     const montoIngresado = pago.monto || 0;
@@ -33,7 +49,9 @@ export function calcTotalesCobro({ totalVenta, descuento, pagos, metodosPago }) 
   const vuelto = pagoUnicoEfectivo ? Math.max(0, efectivoRecibido - totalACobrar) : 0;
 
   let montoCubierto;
-  if (pagoUnicoEfectivo) {
+  if (pagosConMetodo.length !== pagos.length) {
+    montoCubierto = false;
+  } else if (pagoUnicoEfectivo) {
     montoCubierto = efectivoRecibido >= totalACobrar - 0.01;
   } else {
     const sumMontosBase = pagosDetalle.reduce((s, p) => s + p.montoBase, 0);
@@ -56,9 +74,11 @@ export function calcTotalesCobro({ totalVenta, descuento, pagos, metodosPago }) 
 }
 
 export function buildPagosPayload(pagos, metodosPago, { baseACobrar } = {}) {
-  const pagoUnicoEfectivo = pagos.length === 1 && esMetodoEfectivo(pagos[0].metodo);
+  const pagosValidos = pagos.filter((p) => metodoPagoValido(p.metodo));
+  const pagoUnicoEfectivo =
+    pagosValidos.length === 1 && esMetodoEfectivo(pagosValidos[0].metodo);
 
-  return pagos.map((p) => {
+  return pagosValidos.map((p) => {
     const metodo = metodosPago.find((m) => m.nombre === p.metodo);
     const montoIngresado = p.monto || 0;
     const montoRegistro =

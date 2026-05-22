@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, Eye, DollarSign, Receipt, Lock, Wallet, CreditCard } from 'lucide-react';
 import { cajasApi } from '../lib/api.js';
+import { CerrarCajaModal } from './CerrarCajaModal.jsx';
 
 export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja }) {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [empleadoFiltro, setEmpleadoFiltro] = useState('todos');
   const [cajaSeleccionada, setCajaSeleccionada] = useState(null);
+  const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [procesando, setProcesando] = useState(false);
 
   const empleadosDisponibles = ['todos', ...Array.from(new Set(cierres.map((c) => c.empleado)))];
 
@@ -34,25 +35,14 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
 
   const resumen = cajaActual?.resumen;
 
-  const handleCerrarCaja = async () => {
-    const msgResumen = resumen
-      ? `\n\nArqueo esperado:\n• Efectivo en caja: $${resumen.efectivoEsperado.toLocaleString()}\n• Virtual/Transferencias: $${resumen.ingresoVirtual.toLocaleString()}`
-      : '';
-    if (
-      !confirm(
-        `¿Cerrar caja con ${ventasAbiertas.length} ventas ($${cajaActualTotal.toLocaleString()})?${msgResumen}\n\nContá el efectivo y verificá que coincida.`
-      )
-    )
-      return;
+  const handleCerrarCaja = () => {
     setErrorMsg(null);
-    setProcesando(true);
-    try {
-      await onCerrarCaja();
-    } catch (err) {
-      setErrorMsg(err.message || 'Error al cerrar la caja');
-    } finally {
-      setProcesando(false);
-    }
+    setShowCerrarCajaModal(true);
+  };
+
+  const confirmarCierreCaja = async () => {
+    setErrorMsg(null);
+    await onCerrarCaja();
   };
 
   return (
@@ -71,11 +61,11 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
             </div>
             <button
               onClick={handleCerrarCaja}
-              disabled={procesando || !cajaActual?.abierta}
+              disabled={!cajaActual?.abierta}
               className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
             >
               <Lock className="w-5 h-5" />
-              {procesando ? 'Cerrando...' : 'Cerrar Caja Actual'}
+              Cerrar Caja Actual
             </button>
           </div>
           {errorMsg && (
@@ -209,6 +199,16 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
       {cajaSeleccionada != null && (
         <DetalleCajaModal cierreId={cajaSeleccionada} onClose={() => setCajaSeleccionada(null)} />
       )}
+
+      <CerrarCajaModal
+        isOpen={showCerrarCajaModal}
+        onClose={() => setShowCerrarCajaModal(false)}
+        onConfirmar={confirmarCierreCaja}
+        cantidadVentas={ventasAbiertas.length}
+        totalVentas={cajaActualTotal}
+        resumen={resumen}
+        efectivoInicial={cajaActual?.sesion?.efectivoInicial ?? 0}
+      />
     </>
   );
 }

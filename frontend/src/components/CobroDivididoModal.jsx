@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, Printer } from 'lucide-react';
-import { calcTotalesCobro, buildPagosPayload, esMetodoEfectivo } from '../lib/cobro.js';
+import { calcTotalesCobro, buildPagosPayload, esMetodoEfectivo, metodoPagoValido } from '../lib/cobro.js';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
 
 export function CobroDivididoModal({
@@ -14,7 +14,7 @@ export function CobroDivididoModal({
   numeroMesa,
 }) {
   const [descuento, setDescuento] = useState(0);
-  const [pagos, setPagos] = useState([{ id: 1, metodo: metodosPago[0]?.nombre || '', monto: 0 }]);
+  const [pagos, setPagos] = useState([{ id: 1, metodo: '', monto: 0 }]);
   const [procesando, setProcesando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const ticketRef = useRef(null);
@@ -35,6 +35,8 @@ export function CobroDivididoModal({
     metodosPago,
   });
 
+  const metodosSeleccionados = pagos.every((p) => metodoPagoValido(p.metodo));
+  const puedeConfirmar = montoCubierto && metodosSeleccionados;
   const sumMontosBase = pagosDetalle.reduce((s, p) => s + p.montoBase, 0);
   const diferencia = sumMontosBase - baseACobrar;
   const faltante = !pagoUnicoEfectivo && diferencia < -0.01;
@@ -43,8 +45,7 @@ export function CobroDivididoModal({
   useEffect(() => {
     if (isOpen) {
       setDescuento(0);
-      const base = totalVenta;
-      setPagos([{ id: 1, metodo: metodosPago[0]?.nombre || '', monto: base }]);
+      setPagos([{ id: 1, metodo: '', monto: 0 }]);
       setProcesando(false);
       setErrorMsg(null);
     }
@@ -53,7 +54,7 @@ export function CobroDivididoModal({
   useEffect(() => {
     if (!isOpen || pagos.length !== 1) return;
     const pago = pagos[0];
-    if (esMetodoEfectivo(pago.metodo)) return;
+    if (!metodoPagoValido(pago.metodo) || esMetodoEfectivo(pago.metodo)) return;
     const base = totalVenta - descuento;
     setPagos([{ ...pago, monto: base }]);
   }, [descuento, isOpen, totalVenta, pagos.length]);
@@ -61,7 +62,7 @@ export function CobroDivididoModal({
   if (!isOpen) return null;
 
   const agregarMetodoPago = () => {
-    if (pagos.length >= 2) return;
+    if (pagos.length >= 2 || !metodoPagoValido(pagos[0]?.metodo)) return;
     const nuevoId = Math.max(...pagos.map((p) => p.id)) + 1;
     const metodoDisponible = metodosPago.find((m) => !pagos.some((p) => p.metodo === m.nombre));
     const sumaActual = pagosDetalle.reduce((s, p) => s + p.montoBase, 0);
@@ -76,8 +77,7 @@ export function CobroDivididoModal({
     if (pagos.length === 1) return;
     const restantes = pagos.filter((p) => p.id !== id);
     if (restantes.length === 1) {
-      const metodo = restantes[0].metodo;
-      restantes[0].monto = esMetodoEfectivo(metodo) ? totalACobrar : baseACobrar;
+      restantes[0] = { ...restantes[0], monto: baseACobrar };
     }
     setPagos(restantes);
   };
@@ -92,8 +92,10 @@ export function CobroDivididoModal({
       pagos.map((p) => {
         if (p.id !== id) return p;
         const esUnico = pagos.length === 1;
-        const montoSugerido = esMetodoEfectivo(metodo) ? totalACobrar : baseACobrar;
-        return { ...p, metodo, monto: esUnico ? montoSugerido : p.monto };
+        if (!metodoPagoValido(metodo)) {
+          return { ...p, metodo, monto: 0 };
+        }
+        return { ...p, metodo, monto: esUnico ? baseACobrar : p.monto };
       })
     );
   };
@@ -103,7 +105,7 @@ export function CobroDivididoModal({
   };
 
   const handleConfirmar = async () => {
-    if (!montoCubierto) return;
+    if (!puedeConfirmar) return;
     setErrorMsg(null);
     setProcesando(true);
     try {
@@ -161,6 +163,7 @@ export function CobroDivididoModal({
             {pagos.map((pago, index) => {
               const detalle = pagosDetalle.find((d) => d.metodo === pago.metodo);
               const esEfectivo = esMetodoEfectivo(pago.metodo);
+              const metodoSeleccionado = metodoPagoValido(pago.metodo);
               const labelMonto =
                 esEfectivo && pagos.length === 1 ? 'Efectivo recibido ($)' : 'Monto ($)';
 
@@ -184,6 +187,7 @@ export function CobroDivididoModal({
                       onChange={(e) => actualizarMetodo(pago.id, e.target.value)}
                       className="bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600"
                     >
+                      <option value="">Seleccionar</option>
                       {metodosPago.map((metodo) => (
                         <option key={metodo.id} value={metodo.nombre}>
                           {metodo.nombre}{' '}
@@ -194,12 +198,13 @@ export function CobroDivididoModal({
                     <div>
                       <input
                         type="number"
-                        value={pago.monto || ''}
+                        value={metodoSeleccionado ? pago.monto || '' : ''}
                         onChange={(e) => actualizarMonto(pago.id, e.target.value)}
                         placeholder={labelMonto}
                         min="0"
                         step="1"
-                        className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600"
+                        disabled={!metodoSeleccionado}
+                        className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       {esEfectivo && pagos.length === 1 && (
                         <p className="text-[10px] text-zinc-500 mt-1">Podés ingresar más del total (vuelto)</p>
@@ -222,7 +227,8 @@ export function CobroDivididoModal({
             {pagos.length < 2 && (
               <button
                 onClick={agregarMetodoPago}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg px-4 py-3 flex items-center justify-center gap-2 border border-dashed border-zinc-700"
+                disabled={!metodoPagoValido(pagos[0]?.metodo)}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg px-4 py-3 flex items-center justify-center gap-2 border border-dashed border-zinc-700"
               >
                 <Plus className="w-4 h-4" />
                 Combinar con otro método
@@ -271,8 +277,11 @@ export function CobroDivididoModal({
                     Sobran: ${diferencia.toLocaleString()} en el importe
                   </p>
                 )}
-                {montoCubierto && !vuelto && (
+                {montoCubierto && metodosSeleccionados && !vuelto && (
                   <p className="text-sm text-green-500">✓ Listo para confirmar</p>
+                )}
+                {!metodosSeleccionados && (
+                  <p className="text-sm text-amber-400">Seleccioná un método de pago</p>
                 )}
               </div>
               <p className="text-2xl font-bold text-red-500">${totalACobrar.toLocaleString()}</p>
@@ -301,7 +310,7 @@ export function CobroDivididoModal({
           <div className="flex gap-3">
             <button
               onClick={handleImprimir}
-              disabled={!montoCubierto}
+              disabled={!puedeConfirmar}
               className="flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 transition-colors rounded-lg py-4 font-medium flex items-center justify-center gap-2"
             >
               <Printer className="w-5 h-5" />
@@ -309,7 +318,7 @@ export function CobroDivididoModal({
             </button>
             <button
               onClick={handleConfirmar}
-              disabled={!montoCubierto || procesando}
+              disabled={!puedeConfirmar || procesando}
               className="flex-[2] bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg py-4 font-medium"
             >
               {procesando ? 'Procesando...' : 'Confirmar y Cerrar'}

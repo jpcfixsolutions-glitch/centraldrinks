@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
 import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
+import { CerrarCajaModal } from './components/CerrarCajaModal.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
 import { VentaMesa } from './components/VentaMesa.jsx';
@@ -18,6 +19,7 @@ export default function App() {
   const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
   const [cargaMesas, setCargaMesas] = useState({});
   const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
+  const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
 
   const store = useDataStore({ enabled: !!usuarioActual });
   const cajaAbierta = store.cajaActual?.abierta ?? false;
@@ -58,20 +60,10 @@ export default function App() {
     return store.ventas.filter((v) => v.cierreCajaId === sesionId);
   }, [store.ventas, store.cajaActual?.sesion?.id, cajaAbierta]);
 
-  const handleCerrarCaja = async () => {
-    const msgResumen = resumenCaja
-      ? `\n\nArqueo esperado:\n• Efectivo en caja: $${resumenCaja.efectivoEsperado.toLocaleString()}\n• Virtual/Transferencias: $${resumenCaja.ingresoVirtual.toLocaleString()}`
-      : '';
-    const total = ventasAbiertas.reduce((sum, v) => sum + v.total, 0);
-    if (
-      !confirm(
-        `¿Cerrar caja con ${ventasAbiertas.length} ventas ($${total.toLocaleString()})?${msgResumen}\n\nContá el efectivo y verificá que coincida.`
-      )
-    ) {
-      return;
-    }
-    await store.cerrarCajaActual();
-  };
+  const totalVentasAbiertas = useMemo(
+    () => ventasAbiertas.reduce((sum, v) => sum + v.total, 0),
+    [ventasAbiertas]
+  );
 
   const totalGastosFijos = useMemo(
     () => store.gastosFijos.reduce((sum, g) => sum + g.monto, 0),
@@ -466,7 +458,7 @@ export default function App() {
             )}
             {cajaAbierta && (
               <button
-                onClick={() => (esAdministrador ? setVistaActual('cajas') : handleCerrarCaja())}
+                onClick={() => (esAdministrador ? setVistaActual('cajas') : setShowCerrarCajaModal(true))}
                 className="bg-red-500 hover:bg-red-600 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-bold text-white shadow-lg shadow-red-500/20"
               >
                 <Lock className="w-5 h-5" />
@@ -819,6 +811,15 @@ export default function App() {
         isOpen={showAbrirCajaModal}
         onClose={() => setShowAbrirCajaModal(false)}
         onConfirmar={store.abrirCaja}
+      />
+      <CerrarCajaModal
+        isOpen={showCerrarCajaModal}
+        onClose={() => setShowCerrarCajaModal(false)}
+        onConfirmar={store.cerrarCajaActual}
+        cantidadVentas={ventasAbiertas.length}
+        totalVentas={totalVentasAbiertas}
+        resumen={resumenCaja}
+        efectivoInicial={store.cajaActual?.sesion?.efectivoInicial ?? 0}
       />
     </div>
   );

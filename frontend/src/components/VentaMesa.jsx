@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle } from 'lucide-react';
 import { AgregarProductoMesaModal } from './AgregarProductoMesaModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
+import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
 
 export function VentaMesa({
   numeroMesa,
@@ -34,7 +35,20 @@ export function VentaMesa({
 
   const totalMesa = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
 
+  const cantidadesCarrito = useMemo(
+    () => Object.fromEntries(carrito.map((item) => [item.id, item.cantidad])),
+    [carrito]
+  );
+
   const agregarProducto = (producto) => {
+    const productoActual = productos.find((p) => p.id === producto.id);
+    const cantidadEnCarrito = cantidadesCarrito[producto.id] ?? 0;
+    const validacion = validarCantidadStock(productoActual, cantidadEnCarrito + 1);
+    if (!validacion.ok) {
+      alert(validacion.mensaje);
+      return;
+    }
+
     setCarrito((prev) => {
       const existente = prev.find((p) => p.id === producto.id);
       if (existente) {
@@ -45,6 +59,14 @@ export function VentaMesa({
   };
 
   const aumentarCantidad = (id) => {
+    const productoActual = productos.find((p) => p.id === id);
+    const itemCarrito = carrito.find((p) => p.id === id);
+    const validacion = validarCantidadStock(productoActual, (itemCarrito?.cantidad ?? 0) + 1);
+    if (!validacion.ok) {
+      alert(validacion.mensaje);
+      return;
+    }
+
     setCarrito((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: p.cantidad + 1 } : p)));
   };
 
@@ -71,6 +93,12 @@ export function VentaMesa({
   };
 
   const handleConfirmarCerrarMesa = async ({ descuento, pagos, metodoPagoPrincipal, totalACobrar }) => {
+    const validacionCarrito = validarCarritoStock(productos, carrito);
+    if (!validacionCarrito.ok) {
+      alert(validacionCarrito.mensaje);
+      return;
+    }
+
     const venta = {
       tipo: 'mesa',
       numeroMesa,
@@ -124,7 +152,12 @@ export function VentaMesa({
               <div className="h-full flex items-center justify-center text-zinc-500">Mesa vacía</div>
             ) : (
               <div className="space-y-3">
-                {carrito.map((producto) => (
+                {carrito.map((producto) => {
+                  const productoActual = productos.find((p) => p.id === producto.id);
+                  const alMaximoStock =
+                    (productoActual ? stockDisponible(productoActual) : 0) <= producto.cantidad;
+
+                  return (
                   <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <p className="font-medium">{producto.nombre}</p>
@@ -141,7 +174,8 @@ export function VentaMesa({
                         <span className="px-3 min-w-[2rem] text-center">{producto.cantidad}</span>
                         <button
                           onClick={() => aumentarCantidad(producto.id)}
-                          className="p-2 hover:bg-zinc-600 rounded-r-lg transition-colors"
+                          disabled={alMaximoStock}
+                          className="p-2 hover:bg-zinc-600 rounded-r-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -157,7 +191,8 @@ export function VentaMesa({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -194,6 +229,7 @@ export function VentaMesa({
         onClose={() => setShowAgregarModal(false)}
         onAgregar={agregarProducto}
         productos={productos}
+        cantidadesCarrito={cantidadesCarrito}
       />
 
       {showCerrarMesaModal && (

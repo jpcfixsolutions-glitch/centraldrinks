@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql, and } from 'drizzle-orm';
 import { db } from './db.js';
 import { productos } from '../models/productos.model.js';
 import { promocionItems } from '../models/promocionItems.model.js';
@@ -98,7 +98,10 @@ export async function listar() {
     return {
       ...producto,
       componentes,
-      stock: esPromocionCompuesta ? calcularStockEfectivo(componentes) : producto.stock,
+      stock: Math.max(
+        0,
+        esPromocionCompuesta ? calcularStockEfectivo(componentes) : producto.stock
+      ),
     };
   });
 }
@@ -120,7 +123,10 @@ export async function crear(data) {
   return {
     ...creado,
     componentes: componentesGuardados,
-    stock: componentesGuardados.length > 0 ? calcularStockEfectivo(componentesGuardados) : creado.stock,
+    stock: Math.max(
+      0,
+      componentesGuardados.length > 0 ? calcularStockEfectivo(componentesGuardados) : creado.stock
+    ),
   };
 }
 
@@ -141,7 +147,10 @@ export async function actualizar(id, data) {
   return {
     ...actualizado,
     componentes: componentesGuardados,
-    stock: componentesGuardados.length > 0 ? calcularStockEfectivo(componentesGuardados) : actualizado.stock,
+    stock: Math.max(
+      0,
+      componentesGuardados.length > 0 ? calcularStockEfectivo(componentesGuardados) : actualizado.stock
+    ),
   };
 }
 
@@ -150,11 +159,82 @@ export async function eliminar(id) {
   return !!borrado;
 }
 
+export async function validarStockVenta(items) {
+  const demandaPorProducto = new Map();
+
+  for (const item of items) {
+    if (!item.productoId) continue;
+    demandaPorProducto.set(
+      item.productoId,
+      (demandaPorProducto.get(item.productoId) ?? 0) + item.cantidad
+    );
+  }
+
+  for (const [productoId, cantidadSolicitada] of demandaPorProducto) {
+    const [producto] = await db.select().from(productos).where(eq(productos.id, productoId));
+    if (!producto) {
+      const err = new Error(`Producto no encontrado (id ${productoId})`);
+      err.status = 400;
+      throw err;
+    }
+
+    const componentes = await obtenerComponentes(productoId);
+    if (componentes.length > 0) {
+      const stockPromo = calcularStockEfectivo(componentes);
+      if (cantidadSolicitada > stockPromo) {
+        const err = new Error(
+          stockPromo <= 0
+            ? `"${producto.nombre}" no tiene stock disponible (componentes agotados).`
+            : `Stock insuficiente para "${producto.nombre}". Disponible: ${stockPromo}.`
+        );
+        err.status = 400;
+        throw err;
+      }
+
+      for (const componente of componentes) {
+        const necesario = componente.cantidad * cantidadSolicitada;
+        if (componente.stock < necesario) {
+          const err = new Error(
+            `Stock insuficiente de "${componente.nombre}" para la promoción "${producto.nombre}".`
+          );
+          err.status = 400;
+          throw err;
+        }
+      }
+    } else {
+      const stockActual = Math.max(0, producto.stock);
+      if (cantidadSolicitada > stockActual) {
+        const err = new Error(
+          stockActual <= 0
+            ? `"${producto.nombre}" no tiene stock disponible.`
+            : `Stock insuficiente para "${producto.nombre}". Disponible: ${stockActual}.`
+        );
+        err.status = 400;
+        throw err;
+      }
+    }
+  }
+}
+
 export async function descontarStock(productoId, cantidad) {
-  await db
+  const [actualizado] = await db
     .update(productos)
     .set({ stock: sql`${productos.stock} - ${cantidad}` })
-    .where(eq(productos.id, productoId));
+    .where(and(eq(productos.id, productoId), sql`${productos.stock} >= ${cantidad}`))
+    .returning({ nombre: productos.nombre });
+
+  if (!actualizado) {
+    const [producto] = await db
+      .select({ nombre: productos.nombre })
+      .from(productos)
+      .where(eq(productos.id, productoId));
+
+    const err = new Error(
+      `No se pudo descontar stock de "${producto?.nombre ?? 'producto'}".`
+    );
+    err.status = 400;
+    throw err;
+  }
 }
 
 export async function descontarStockVenta(items) {

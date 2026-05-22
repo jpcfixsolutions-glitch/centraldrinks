@@ -4,7 +4,7 @@ import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
 import { ventaPagos } from '../models/ventaPagos.model.js';
 import { idSesionAbierta } from './cierresCaja.service.js';
-import { descontarStockVenta } from './productos.service.js';
+import { descontarStockVenta, validarStockVenta } from './productos.service.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -63,6 +63,8 @@ export async function crear(data, usuarioId) {
   }
 
   const codigo = generarCodigo(data.tipo);
+
+  await validarStockVenta(data.items);
 
   const [venta] = await db
     .insert(ventas)

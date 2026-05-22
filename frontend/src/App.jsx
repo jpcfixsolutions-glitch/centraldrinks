@@ -208,42 +208,46 @@ export default function App() {
   });
 
   const Sidebar = ({ active }) => (
-    <div className="w-16 bg-zinc-900 flex flex-col items-center py-6 space-y-8">
-      <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-sm font-bold">
+    <aside className="fixed inset-y-0 left-0 z-50 w-16 bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-4 shrink-0">
+      <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
         C22
       </div>
 
-      <div className="flex-1 flex flex-col items-center space-y-6">
+      <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2 overflow-y-auto flex-1 min-h-0">
         <button
           onClick={() => setVistaActual('home')}
-          className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
             active === 'home' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
           }`}
+          title="Inicio"
         >
           <Home className="w-5 h-5" />
         </button>
         <button
           onClick={() => setVistaActual('ventas')}
-          className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
             active === 'ventas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
           }`}
+          title="Ventas"
         >
           <ShoppingCart className="w-5 h-5" />
         </button>
         <button
           onClick={() => setVistaActual('mesas')}
-          className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
             active === 'mesas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
           }`}
+          title="Mesas"
         >
           <Utensils className="w-5 h-5" />
         </button>
         {puedeAccederStock && (
           <button
             onClick={() => setVistaActual('stock')}
-            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
               active === 'stock' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
             }`}
+            title="Stock"
           >
             <Package className="w-5 h-5" />
           </button>
@@ -251,9 +255,10 @@ export default function App() {
         {esAdministrador && (
           <button
             onClick={() => setVistaActual('stats')}
-            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
               active === 'stats' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
             }`}
+            title="Estadísticas"
           >
             <BarChart3 className="w-5 h-5" />
           </button>
@@ -261,35 +266,34 @@ export default function App() {
         {puedeAccederCajas && (
           <button
             onClick={() => setVistaActual('cajas')}
-            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
               active === 'cajas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
             }`}
+            title="Cajas"
           >
             <Archive className="w-5 h-5" />
           </button>
         )}
-      </div>
-
-      <div className="flex flex-col items-center gap-4 pb-6">
         {puedeAccederConfiguracion && (
           <button
             onClick={() => setVistaActual('configuracion')}
-            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
               active === 'configuracion' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
             }`}
+            title="Configuración"
           >
             <Settings className="w-5 h-5" />
           </button>
         )}
         <button
           onClick={handleLogout}
-          className="w-12 h-12 rounded-lg flex items-center justify-center hover:bg-red-600 transition-colors text-zinc-400 hover:text-white"
+          className="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center hover:bg-red-600 transition-colors text-zinc-400 hover:text-white"
           title="Cerrar sesión"
         >
           <LogOut className="w-5 h-5" />
         </button>
-      </div>
-    </div>
+      </nav>
+    </aside>
   );
 
   if (vistaActual === 'stock' && !puedeAccederStock) setVistaActual('home');
@@ -804,9 +808,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex">
+    <div className="min-h-screen bg-black text-white">
       <Sidebar active={vistaActual} />
-      {contenido}
+      <div className="ml-16 min-h-screen flex flex-col">{contenido}</div>
       <AbrirCajaModal
         isOpen={showAbrirCajaModal}
         onClose={() => setShowAbrirCajaModal(false)}

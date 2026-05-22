@@ -11,12 +11,6 @@ export function Login() {
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  const autocompletar = (user, pass) => {
-    setUsername(user);
-    setPassword(pass);
-    setError('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -107,30 +101,6 @@ export function Login() {
               {cargando ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-zinc-800">
-            <p className="text-xs text-zinc-500 mb-3">Usuarios de prueba (click para autocompletar):</p>
-            <div className="space-y-2 text-xs">
-              <button
-                type="button"
-                onClick={() => autocompletar('admin', 'admin123')}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 transition-colors rounded p-2 text-left"
-              >
-                <p className="text-zinc-400">
-                  <span className="text-white font-medium">Admin:</span> admin / admin123
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => autocompletar('empleado1', 'emp123')}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 transition-colors rounded p-2 text-left"
-              >
-                <p className="text-zinc-400">
-                  <span className="text-white font-medium">Empleado:</span> empleado1 / emp123
-                </p>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

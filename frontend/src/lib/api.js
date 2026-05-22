@@ -1,6 +1,5 @@
-const API_URL = import.meta.env.DEV
-  ? (import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? '/api')
-  : '/api';
+const configuredUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, '');
+const API_URL = configuredUrl ?? (import.meta.env.DEV ? '/api' : '');
 
 const TOKEN_KEY = 'centraldrinks_token';
 
@@ -24,6 +23,13 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, options = {}) {
+  if (!API_URL) {
+    throw new ApiError(
+      'VITE_API_URL no está configurada. Agregala en Vercel (proyecto frontend).',
+      0
+    );
+  }
+
   const { body, auth = true, headers, ...rest } = options;
 
   const finalHeaders = {

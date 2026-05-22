@@ -5,9 +5,31 @@ import routes from './routes/index.js';
 
 const app = express();
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+
+  const allowed =
+    process.env.CORS_ORIGIN?.split(',')
+      .map((value) => value.trim())
+      .filter(Boolean) ?? [];
+
+  if (allowed.includes(origin)) return true;
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+
+  return allowed.length === 0;
+}
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) {
+        callback(null, origin ?? true);
+        return;
+      }
+
+      callback(new Error(`Origen no permitido por CORS: ${origin}`));
+    },
     credentials: true,
   })
 );
@@ -26,7 +48,6 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', routes);
-// En Vercel a veces llega la ruta sin el prefijo /api
 app.use(routes);
 
 app.use((_req, res) => {

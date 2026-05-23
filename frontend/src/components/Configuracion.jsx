@@ -148,13 +148,13 @@ export function Configuracion({
   return (
     <>
       <div className="flex-1 flex flex-col bg-black text-white">
-        <header className="px-8 py-6 border-b border-zinc-800">
-          <div className="flex items-center gap-4">
-            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+        <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold">Configuración</h1>
+              <h1 className="text-xl sm:text-2xl font-bold">Configuración</h1>
               <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
                 Club 22 - Parámetros del Sistema
               </p>
@@ -167,61 +167,61 @@ export function Configuracion({
           )}
         </header>
 
-        <div className="flex-1 flex">
-          <div className="w-64 border-r border-zinc-800 p-6">
-            <h3 className="text-xs text-zinc-500 uppercase tracking-wide mb-4">Secciones</h3>
-            <div className="space-y-2">
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          <div className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-zinc-800 p-4 lg:p-6 shrink-0">
+            <h3 className="text-xs text-zinc-500 uppercase tracking-wide mb-3 lg:mb-4 hidden lg:block">Secciones</h3>
+            <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
               <button
                 onClick={() => setSeccionActiva('metodos-pago')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg transition-colors text-sm lg:text-base ${
                   seccionActiva === 'metodos-pago'
                     ? 'bg-red-600 text-white'
                     : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
                 }`}
               >
-                <CreditCard className="w-5 h-5" />
-                Métodos de Pago
+                <CreditCard className="w-5 h-5 shrink-0" />
+                <span className="whitespace-nowrap">Métodos de Pago</span>
               </button>
               <button
                 onClick={() => setSeccionActiva('categorias')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg transition-colors text-sm lg:text-base ${
                   seccionActiva === 'categorias'
                     ? 'bg-red-600 text-white'
                     : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
                 }`}
               >
-                <Tag className="w-5 h-5" />
-                Categorías de Productos
+                <Tag className="w-5 h-5 shrink-0" />
+                <span className="whitespace-nowrap">Categorías</span>
               </button>
               <button
                 onClick={() => setSeccionActiva('gastos-fijos')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2.5 lg:py-3 rounded-lg transition-colors text-sm lg:text-base ${
                   seccionActiva === 'gastos-fijos'
                     ? 'bg-red-600 text-white'
                     : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
                 }`}
               >
-                <Building className="w-5 h-5" />
-                Gastos Fijos
+                <Building className="w-5 h-5 shrink-0" />
+                <span className="whitespace-nowrap">Gastos Fijos</span>
               </button>
             </div>
           </div>
 
-          <div className="flex-1 p-8 overflow-auto">
+          <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto min-w-0">
             {seccionActiva === 'metodos-pago' && (
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Métodos de Pago</h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold">Métodos de Pago</h2>
                   <button
                     onClick={handleAgregarMetodoPago}
-                    className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
                     Nuevo Método
                   </button>
                 </div>
 
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-zinc-800">
@@ -281,18 +281,18 @@ export function Configuracion({
 
             {seccionActiva === 'categorias' && (
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Categorías de Productos</h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold">Categorías de Productos</h2>
                   <button
                     onClick={handleAgregarCategoria}
-                    className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
                     Nueva Categoría
                   </button>
                 </div>
 
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-zinc-800">
@@ -337,18 +337,18 @@ export function Configuracion({
 
             {seccionActiva === 'gastos-fijos' && (
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Gastos Fijos del Mes</h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold">Gastos Fijos del Mes</h2>
                   <button
                     onClick={handleAgregarGastoFijo}
-                    className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
                     Nuevo Gasto Fijo
                   </button>
                 </div>
 
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-zinc-800">
@@ -498,7 +498,7 @@ function ModalMetodoPago({ isOpen, onClose, onGuardar, metodoEditando, guardando
             <p className="text-xs text-zinc-500 mt-2">Positivo para recargo, negativo para descuento</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
@@ -579,7 +579,7 @@ function ModalGastoFijo({ isOpen, onClose, onGuardar, gastoEditando }) {
               step="0.01"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button type="button" onClick={onClose} className="bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg py-3 font-medium">Cancelar</button>
             <button type="submit" className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg py-3 font-medium">Guardar</button>
           </div>
@@ -632,7 +632,7 @@ function ModalCategoria({ isOpen, onClose, onGuardar, categoriaEditando, guardan
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}

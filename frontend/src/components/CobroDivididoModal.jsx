@@ -181,7 +181,7 @@ export function CobroDivididoModal({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <select
                       value={pago.metodo}
                       onChange={(e) => actualizarMetodo(pago.id, e.target.value)}
@@ -307,7 +307,7 @@ export function CobroDivididoModal({
             </div>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleImprimir}
               disabled={!puedeConfirmar}

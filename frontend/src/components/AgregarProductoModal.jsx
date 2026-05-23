@@ -73,7 +73,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
             return (
               <div
                 key={producto.id}
-                className="bg-zinc-800 rounded-lg p-4 flex items-center gap-4 hover:bg-zinc-750 transition-colors"
+                className="bg-zinc-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
               >
                 <div className="w-16 h-16 bg-zinc-700 rounded-lg overflow-hidden flex-shrink-0">
                   {producto.imagen ? (
@@ -100,13 +100,13 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
                   <StockAviso producto={producto} />
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <p className="text-red-500 font-medium text-lg">
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
+                  <p className="text-red-500 font-medium text-lg shrink-0">
                     ${producto.precioMostrador.toLocaleString()}
                   </p>
                   <button
                     onClick={() => handleAgregar(producto)}
-                    className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg px-4 py-2 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                     disabled={noPuedeAgregar}
                     title={sinStock ? 'Sin stock disponible' : noPuedeAgregar ? 'Stock máximo en carrito' : undefined}
                   >

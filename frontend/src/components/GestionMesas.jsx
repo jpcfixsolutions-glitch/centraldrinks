@@ -84,14 +84,14 @@ export function GestionMesas({
 
   return (
     <div className="flex-1 flex flex-col bg-black text-white">
-      <header className="px-8 py-6 border-b border-zinc-800">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+      <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold">Gestión de Mesas</h1>
+              <h1 className="text-xl sm:text-2xl font-bold">Gestión de Mesas</h1>
               <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
                 Club 22 - Control de Mesas
               </p>
@@ -101,7 +101,7 @@ export function GestionMesas({
             <button
               onClick={handleAgregarMesa}
               disabled={procesando}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Nueva Mesa
@@ -115,7 +115,7 @@ export function GestionMesas({
         )}
       </header>
 
-      <div className="flex-1 p-8 overflow-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-6">Estado de Mesas</h2>
 
@@ -173,9 +173,9 @@ export function GestionMesas({
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Historial de Mesas Cerradas (caja actual)</h2>
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold">Historial de Mesas Cerradas (caja actual)</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
               <label className="text-sm text-zinc-400">Filtrar por fecha:</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />

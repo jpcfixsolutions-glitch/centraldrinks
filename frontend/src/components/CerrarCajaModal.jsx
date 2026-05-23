@@ -57,7 +57,7 @@ export function CerrarCajaModal({
         </div>
 
         <div className="p-6 space-y-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-zinc-800/60 rounded-lg p-4 border border-zinc-700/50">
               <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
                 <Receipt className="w-4 h-4" />

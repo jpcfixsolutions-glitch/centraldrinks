@@ -1,4 +1,7 @@
-@custom-variant dark (&:is(.dark *));
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 
 :root {
   --font-size: 16px;

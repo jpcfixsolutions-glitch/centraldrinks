@@ -280,7 +280,7 @@ export function NuevoProductoModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Precio Mesa</label>
               <input
@@ -309,7 +309,7 @@ export function NuevoProductoModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {!esPromocion ? (
               <div>
                 <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Stock Inicial</label>
@@ -347,7 +347,7 @@ export function NuevoProductoModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}

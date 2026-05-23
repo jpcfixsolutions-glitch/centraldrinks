@@ -129,23 +129,23 @@ export function VentaMesa({
   return (
     <>
       <div className="flex-1 flex flex-col bg-black text-white">
-        <header className="px-8 py-6 border-b border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+        <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl font-bold">Mesa {numeroMesa}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Mesa {numeroMesa}</h1>
           </div>
           <button
             onClick={() => setShowAgregarModal(true)}
-            className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
           >
             <Plus className="w-5 h-5" />
             Agregar Item
           </button>
         </header>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-8">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
           <div className="lg:col-span-2 bg-zinc-900 rounded-lg border border-zinc-800 p-6">
             {carrito.length === 0 ? (
               <div className="h-full flex items-center justify-center text-zinc-500">Mesa vacía</div>
@@ -157,13 +157,13 @@ export function VentaMesa({
                     (productoActual ? stockDisponible(productoActual) : 0) <= producto.cantidad;
 
                   return (
-                  <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium">{producto.nombre}</p>
+                  <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{producto.nombre}</p>
                       <p className="text-sm text-zinc-400">{producto.categoria}</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 bg-zinc-700 rounded-lg">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
+                      <div className="flex items-center gap-2 bg-zinc-700 rounded-lg shrink-0">
                         <button
                           onClick={() => disminuirCantidad(producto.id)}
                           className="p-2 hover:bg-zinc-600 rounded-l-lg transition-colors"
@@ -199,7 +199,7 @@ export function VentaMesa({
           <div className="space-y-4">
             <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
               <p className="text-zinc-400 text-sm mb-2">Total Mesa</p>
-              <p className="text-4xl font-bold text-red-500">${totalMesa.toLocaleString()}</p>
+              <p className="text-3xl sm:text-4xl font-bold text-red-500">${totalMesa.toLocaleString()}</p>
             </div>
 
             <button

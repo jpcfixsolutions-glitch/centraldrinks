@@ -105,20 +105,20 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
 
   return (
     <div className="flex-1 flex flex-col bg-black text-white">
-      <header className="px-8 py-6 border-b border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+      <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold">Estadísticas</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold">Estadísticas</h1>
             <p className="text-sm text-zinc-500 mt-1">Rendimiento financiero del negocio</p>
           </div>
         </div>
-        <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+        <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800 w-full sm:w-auto">
           <button
             onClick={() => setRangoTiempo('semana')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               rangoTiempo === 'semana' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -126,7 +126,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
           </button>
           <button
             onClick={() => setRangoTiempo('mes')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               rangoTiempo === 'mes' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -135,7 +135,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
         </div>
       </header>
 
-      <div className="flex-1 p-8 overflow-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
         {/* Tarjetas Principales */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Total Ingresos */}
@@ -176,7 +176,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
             <div className="absolute top-0 right-0 p-4 opacity-5">
               <TrendingDown className="w-24 h-24 text-red-500" />
             </div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
                   <TrendingDown className="w-5 h-5 text-red-500" />
@@ -385,7 +385,7 @@ function ModalNuevoGasto({ isOpen, onClose, onGuardar, guardando = false }) {
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Monto ($)</label>
               <input

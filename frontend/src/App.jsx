@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
 import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
 import { CerrarCajaModal } from './components/CerrarCajaModal.jsx';
+import { AppNav } from './components/AppNav.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
 import { VentaMesa } from './components/VentaMesa.jsx';
@@ -208,95 +209,15 @@ export default function App() {
   });
 
   const Sidebar = ({ active }) => (
-    <aside className="fixed inset-y-0 left-0 z-50 w-16 h-screen bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-4">
-      <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
-        C22
-      </div>
-
-      <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2 flex-1">
-        <button
-          onClick={() => setVistaActual('home')}
-          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-            active === 'home' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-          }`}
-          title="Inicio"
-        >
-          <Home className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setVistaActual('ventas')}
-          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-            active === 'ventas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-          }`}
-          title="Ventas"
-        >
-          <ShoppingCart className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setVistaActual('mesas')}
-          className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-            active === 'mesas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-          }`}
-          title="Mesas"
-        >
-          <Utensils className="w-5 h-5" />
-        </button>
-        {puedeAccederStock && (
-          <button
-            onClick={() => setVistaActual('stock')}
-            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-              active === 'stock' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-            }`}
-            title="Stock"
-          >
-            <Package className="w-5 h-5" />
-          </button>
-        )}
-        {esAdministrador && (
-          <button
-            onClick={() => setVistaActual('stats')}
-            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-              active === 'stats' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-            }`}
-            title="Estadísticas"
-          >
-            <BarChart3 className="w-5 h-5" />
-          </button>
-        )}
-        {puedeAccederCajas && (
-          <button
-            onClick={() => setVistaActual('cajas')}
-            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-              active === 'cajas' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-            }`}
-            title="Cajas"
-          >
-            <Archive className="w-5 h-5" />
-          </button>
-        )}
-      </nav>
-
-      <div className="shrink-0 flex flex-col items-center gap-2 w-full px-2 pt-3 border-t border-zinc-800">
-        {puedeAccederConfiguracion && (
-          <button
-            onClick={() => setVistaActual('configuracion')}
-            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-              active === 'configuracion' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-zinc-800'
-            }`}
-            title="Configuración"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        )}
-        <button
-          onClick={handleLogout}
-          className="w-12 h-12 shrink-0 rounded-lg flex items-center justify-center hover:bg-red-600/20 transition-colors text-zinc-400 hover:text-red-400"
-          title="Cerrar sesión"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-      </div>
-    </aside>
+    <AppNav
+      active={active}
+      onNavigate={setVistaActual}
+      onLogout={handleLogout}
+      esAdministrador={esAdministrador}
+      puedeAccederStock={puedeAccederStock}
+      puedeAccederCajas={puedeAccederCajas}
+      puedeAccederConfiguracion={puedeAccederConfiguracion}
+    />
   );
 
   if (vistaActual === 'stock' && !puedeAccederStock) setVistaActual('home');
@@ -445,14 +366,14 @@ export default function App() {
     contenido = (
       <>
       <div className="flex-1 flex flex-col">
-        <header className="px-8 py-6 border-b border-zinc-800">
-          <div className="flex items-center justify-between">
+        <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-            <h1 className="text-3xl font-bold text-white mb-1">Panel de Inicio</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Panel de Inicio</h1>
             <p className="text-zinc-400 text-sm">Resumen en vivo de tu negocio</p>
             </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setShowRetirarModal(true)} className="bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-medium text-zinc-300">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <button onClick={() => setShowRetirarModal(true)} className="bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 font-medium text-zinc-300 text-sm sm:text-base">
               <Package className="w-5 h-5" />
               Retirar
             </button>
@@ -478,7 +399,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 overflow-auto">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           {esAdministrador && productosBajoStock.length > 0 && (
             <div className="mb-8 bg-red-900/20 border border-red-700/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-red-900/10">
               <div className="flex items-center gap-4">
@@ -775,14 +696,14 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 <button
                   onClick={() => setVistaActual('mesas')}
-                  className="bg-red-600 hover:bg-red-700 transition-all transform hover:-translate-y-1 rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-xl font-bold shadow-lg shadow-red-900/20"
+                  className="bg-red-600 hover:bg-red-700 transition-all transform hover:-translate-y-1 rounded-xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-lg sm:text-xl font-bold shadow-lg shadow-red-900/20"
                 >
                   <Utensils className="w-10 h-10" />
                   Gestión de Mesas
                 </button>
                 <button
                   onClick={() => setVistaActual('ventas')}
-                  className="bg-red-600 hover:bg-red-700 transition-all transform hover:-translate-y-1 rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-xl font-bold shadow-lg shadow-red-900/20"
+                  className="bg-red-600 hover:bg-red-700 transition-all transform hover:-translate-y-1 rounded-xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-lg sm:text-xl font-bold shadow-lg shadow-red-900/20"
                 >
                   <Receipt className="w-10 h-10" />
                   Venta Mostrador
@@ -815,7 +736,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Sidebar active={vistaActual} />
-      <div className="ml-16 min-h-screen flex flex-col">{contenido}</div>
+      <div className="min-h-screen flex flex-col md:ml-16 pb-20 md:pb-0">{contenido}</div>
       <AbrirCajaModal
         isOpen={showAbrirCajaModal}
         onClose={() => setShowAbrirCajaModal(false)}
@@ -882,8 +803,8 @@ function PanelBotellasBarra({ botellas, onAbrir, onVaciar, compact = false }) {
 
   return (
     <div className="mb-10 bg-zinc-900/50 rounded-xl p-6 border border-zinc-800">
-      <div className="flex items-center justify-between mb-4 gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
             <Wine className="w-5 h-5 text-purple-500" />
           </div>
@@ -898,7 +819,7 @@ function PanelBotellasBarra({ botellas, onAbrir, onVaciar, compact = false }) {
         </div>
         <button
           onClick={onAbrir}
-          className="bg-purple-600 hover:bg-purple-700 transition-colors rounded-lg px-4 py-2.5 flex items-center gap-2 font-medium whitespace-nowrap"
+          className="bg-purple-600 hover:bg-purple-700 transition-colors rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 font-medium w-full sm:w-auto shrink-0"
         >
           <Plus className="w-4 h-4" />
           Abrir Botella
@@ -965,15 +886,15 @@ function ModalAbrirBotella({ isOpen, onClose, productos, onAbrir, procesando }) 
 
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {productosFiltrados.map((producto) => (
-            <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex items-center justify-between">
-              <div>
+            <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
                 <p className="font-medium text-white mb-1">{producto.nombre}</p>
                 <p className="text-sm text-zinc-400">Stock actual: {producto.stock}</p>
               </div>
               <button
                 onClick={() => onAbrir(producto)}
                 disabled={producto.stock <= 0 || procesando}
-                className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-4 py-2 rounded-lg font-medium text-white flex items-center gap-2"
+                className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-4 py-2 rounded-lg font-medium text-white flex items-center justify-center gap-2 w-full sm:w-auto shrink-0"
               >
                 {procesando ? 'Abriendo...' : 'Abrir'}
               </button>

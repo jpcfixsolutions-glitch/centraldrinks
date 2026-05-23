@@ -102,30 +102,30 @@ export function GestionStock({
   return (
     <>
       <div className="flex-1 flex flex-col bg-black text-white">
-        <header className="px-8 py-6 border-b border-zinc-800">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-4">
-              <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+        <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold">Catálogo de Productos</h1>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold truncate">Catálogo de Productos</h1>
                 <p className="text-sm text-zinc-500 uppercase tracking-wide mt-1">
                   Club 22 - Gestión de Stock
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <button
                 onClick={() => abrirModalProducto()}
-                className="bg-zinc-800 hover:bg-zinc-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2 border border-zinc-700"
+                className="bg-zinc-800 hover:bg-zinc-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 border border-zinc-700 text-sm sm:text-base"
               >
                 <Plus className="w-5 h-5" />
                 Nuevo Producto
               </button>
               <button
                 onClick={() => abrirModalProducto('Promociones')}
-                className="bg-red-600 hover:bg-red-700 transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+                className="bg-red-600 hover:bg-red-700 transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 <Plus className="w-5 h-5" />
                 Nueva Promoción
@@ -139,7 +139,7 @@ export function GestionStock({
           )}
         </header>
 
-        <div className="flex-1 p-8 overflow-auto">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <div className="relative mb-6">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
             <input

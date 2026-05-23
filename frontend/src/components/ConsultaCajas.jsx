@@ -50,21 +50,21 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
   return (
     <>
       <div className="flex-1 flex flex-col bg-black text-white">
-        <header className="px-8 py-6 border-b border-zinc-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors">
+        <header className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 border-b border-zinc-800">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold">Consulta de Cajas</h1>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold">Consulta de Cajas</h1>
                 <p className="text-sm text-zinc-500 mt-1">Historial de cierres de caja</p>
               </div>
             </div>
             <button
               onClick={handleCerrarCaja}
               disabled={!cajaActual?.abierta}
-              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-6 py-3 rounded-lg flex items-center gap-2"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2"
             >
               <Lock className="w-5 h-5" />
               Cerrar Caja Actual
@@ -77,7 +77,7 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
           )}
         </header>
 
-        <div className="flex-1 p-8 overflow-auto">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           {cajaActual?.abierta && resumen && (
             <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-6 mb-6">
               <h3 className="text-lg font-bold text-green-500 mb-4">Caja abierta — Arqueo actual</h3>
@@ -300,26 +300,26 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-900 rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="p-6 border-b border-zinc-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Detalle de Caja: {cierre.caja}</h2>
-              <div className="flex items-center gap-4 text-sm text-zinc-400">
+        <div className="p-4 sm:p-6 border-b border-zinc-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold mb-2">Detalle de Caja: {cierre.caja}</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-zinc-400">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4 shrink-0" />
                   {formatearFecha(cierre.fechaCierre)} - {formatearHora(cierre.fechaCierre)}
                 </div>
-                <span>•</span>
+                <span className="hidden sm:inline">•</span>
                 <span>Atendió: {cierre.empleado}</span>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
+            <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors self-end sm:self-auto shrink-0">
               <span className="text-2xl text-zinc-400">×</span>
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
               <div className="flex items-center gap-3 mb-2">
@@ -379,14 +379,14 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
             <h3 className="text-lg font-bold">
               Resumen de productos en {tipoVista === 'mostrador' ? 'Mostrador' : 'Mesas'}
             </h3>
-            <div className="flex items-center gap-2 bg-zinc-800 p-1 rounded-lg border border-zinc-700">
+            <div className="flex items-center gap-2 bg-zinc-800 p-1 rounded-lg border border-zinc-700 w-full sm:w-auto">
               <button
                 onClick={() => setTipoVista('mostrador')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   tipoVista === 'mostrador' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -394,7 +394,7 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
               </button>
               <button
                 onClick={() => setTipoVista('mesa')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   tipoVista === 'mesa' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -404,7 +404,7 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
           </div>
 
           {tipoVista === 'mostrador' && productosArrayMostrador.length > 0 && (
-            <div className="mb-6 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+            <div className="mb-6 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-700">
@@ -431,7 +431,7 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
           )}
 
           {tipoVista === 'mesa' && resumenProductosMesas.length > 0 && (
-            <div className="mb-6 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+            <div className="mb-6 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-700">
@@ -476,8 +476,8 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
               <div className="space-y-4">
                 {ventasFiltradas.map((venta) => (
                   <div key={venta.id} className="bg-zinc-800 rounded-lg border border-zinc-700 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
                         <span className="text-blue-500 font-bold">#{venta.codigo}</span>
                         <span className="text-sm text-zinc-400">
                           {formatearHora(venta.fecha)}

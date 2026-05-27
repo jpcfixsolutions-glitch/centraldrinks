@@ -1,13 +1,33 @@
-import { useState } from 'react';
-import { X, Search, Plus, Wine, Package } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Search, Plus, Wine, Package, ChevronDown } from 'lucide-react';
 import { StockAviso } from './StockAviso.jsx';
 import { esSinStock, stockDisponible, validarCantidadStock } from '../lib/stock.js';
+
+const OPCIONES_PRECIO = [
+  { value: 'mostrador', label: 'Precio mostrador' },
+  { value: 'mesa', label: 'Precio mesa' },
+];
+
+function precioPorTipo(producto, tipo) {
+  return tipo === 'mesa' ? producto.precioMesa : producto.precioMostrador;
+}
 
 export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [], cantidadesCarrito = {} }) {
   const [busqueda, setBusqueda] = useState('');
   const [error, setError] = useState('');
+  const [tipoPrecioPorProducto, setTipoPrecioPorProducto] = useState({});
+
+  useEffect(() => {
+    if (!isOpen) {
+      setBusqueda('');
+      setError('');
+      setTipoPrecioPorProducto({});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const getTipoPrecio = (productoId) => tipoPrecioPorProducto[productoId] ?? 'mostrador';
 
   const productosFiltrados = productos.filter((p) => {
     const nombre = p.nombre?.toLowerCase() ?? '';
@@ -24,12 +44,15 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
       return;
     }
 
+    const tipoPrecio = getTipoPrecio(producto.id);
+
     setError('');
     onAgregar({
       id: producto.id,
       nombre: producto.nombre,
       categoria: producto.categoria || 'Sin categoría',
-      precio: producto.precioMostrador,
+      tipoPrecio,
+      precio: precioPorTipo(producto, tipoPrecio),
       imagen: producto.imagen,
     });
     onClose();
@@ -39,7 +62,10 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-900 rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-zinc-800">
-          <h2 className="text-xl font-bold">Agregar Producto</h2>
+          <div>
+            <h2 className="text-xl font-bold">Agregar Producto</h2>
+            <p className="text-sm text-zinc-500 mt-1">Elegí mostrador o mesa antes de agregar</p>
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -69,6 +95,8 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
             const cantidadEnCarrito = cantidadesCarrito[producto.id] ?? 0;
             const noPuedeAgregar =
               sinStock || cantidadEnCarrito >= stockDisponible(producto);
+            const tipoPrecio = getTipoPrecio(producto.id);
+            const precioActual = precioPorTipo(producto, tipoPrecio);
 
             return (
               <div
@@ -89,7 +117,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
                   )}
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium mb-1">{producto.nombre}</p>
                   <p className="text-sm text-zinc-400">{producto.categoria || 'Sin categoría'}</p>
                   <p className="text-xs text-zinc-500 mt-1">
@@ -100,13 +128,34 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
                   <StockAviso producto={producto} />
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
-                  <p className="text-red-500 font-medium text-lg shrink-0">
-                    ${producto.precioMostrador.toLocaleString()}
-                  </p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 bg-zinc-700/80 border border-zinc-600 rounded-lg pl-3 pr-2 py-1.5 min-w-[11rem]">
+                    <div className="relative flex-1">
+                      <select
+                        value={tipoPrecio}
+                        onChange={(e) =>
+                          setTipoPrecioPorProducto((prev) => ({
+                            ...prev,
+                            [producto.id]: e.target.value,
+                          }))
+                        }
+                        className="w-full appearance-none bg-transparent text-sm text-white pr-6 focus:outline-none cursor-pointer"
+                      >
+                        {OPCIONES_PRECIO.map((opcion) => (
+                          <option key={opcion.value} value={opcion.value} className="bg-zinc-800">
+                            {opcion.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                    <span className="text-red-500 font-semibold text-lg shrink-0 tabular-nums">
+                      ${precioActual.toLocaleString()}
+                    </span>
+                  </div>
                   <button
                     onClick={() => handleAgregar(producto)}
-                    className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                    className="bg-red-600 hover:bg-red-700 transition-colors rounded-lg px-4 py-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto shrink-0"
                     disabled={noPuedeAgregar}
                     title={sinStock ? 'Sin stock disponible' : noPuedeAgregar ? 'Stock máximo en carrito' : undefined}
                   >

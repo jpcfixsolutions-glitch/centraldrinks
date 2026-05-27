@@ -19,53 +19,71 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
 
   const totalVenta = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
 
-  const cantidadesCarrito = useMemo(
-    () => Object.fromEntries(carrito.map((item) => [item.id, item.cantidad])),
-    [carrito]
-  );
+  const cantidadesCarrito = useMemo(() => {
+    const totales = {};
+    for (const item of carrito) {
+      totales[item.id] = (totales[item.id] ?? 0) + item.cantidad;
+    }
+    return totales;
+  }, [carrito]);
+
+  const lineKey = (item) => `${item.id}-${item.tipoPrecio ?? 'mostrador'}`;
+
+  const cantidadTotalProducto = (productoId) => cantidadesCarrito[productoId] ?? 0;
 
   const agregarProducto = (producto) => {
     const productoActual = productos.find((p) => p.id === producto.id);
-    const cantidadEnCarrito = cantidadesCarrito[producto.id] ?? 0;
-    const validacion = validarCantidadStock(productoActual, cantidadEnCarrito + 1);
+    const tipoPrecio = producto.tipoPrecio ?? 'mostrador';
+    const validacion = validarCantidadStock(
+      productoActual,
+      cantidadTotalProducto(producto.id) + 1
+    );
     if (!validacion.ok) {
       alert(validacion.mensaje);
       return;
     }
 
     setCarrito((prev) => {
-      const existente = prev.find((p) => p.id === producto.id);
+      const key = `${producto.id}-${tipoPrecio}`;
+      const existente = prev.find((p) => lineKey(p) === key);
       if (existente) {
-        return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: p.cantidad + 1 } : p));
+        return prev.map((p) => (lineKey(p) === key ? { ...p, cantidad: p.cantidad + 1 } : p));
       }
-      return [...prev, { ...producto, cantidad: 1 }];
+      return [...prev, { ...producto, tipoPrecio, cantidad: 1 }];
     });
   };
 
-  const aumentarCantidad = (id) => {
-    const productoActual = productos.find((p) => p.id === id);
-    const itemCarrito = carrito.find((p) => p.id === id);
-    const validacion = validarCantidadStock(productoActual, (itemCarrito?.cantidad ?? 0) + 1);
+  const aumentarCantidad = (key) => {
+    const itemCarrito = carrito.find((p) => lineKey(p) === key);
+    if (!itemCarrito) return;
+
+    const productoActual = productos.find((p) => p.id === itemCarrito.id);
+    const validacion = validarCantidadStock(
+      productoActual,
+      cantidadTotalProducto(itemCarrito.id) + 1
+    );
     if (!validacion.ok) {
       alert(validacion.mensaje);
       return;
     }
 
-    setCarrito((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: p.cantidad + 1 } : p)));
+    setCarrito((prev) =>
+      prev.map((p) => (lineKey(p) === key ? { ...p, cantidad: p.cantidad + 1 } : p))
+    );
   };
 
-  const disminuirCantidad = (id) => {
+  const disminuirCantidad = (key) => {
     setCarrito((prev) => {
-      const producto = prev.find((p) => p.id === id);
+      const producto = prev.find((p) => lineKey(p) === key);
       if (producto && producto.cantidad > 1) {
-        return prev.map((p) => (p.id === id ? { ...p, cantidad: p.cantidad - 1 } : p));
+        return prev.map((p) => (lineKey(p) === key ? { ...p, cantidad: p.cantidad - 1 } : p));
       }
-      return prev.filter((p) => p.id !== id);
+      return prev.filter((p) => lineKey(p) !== key);
     });
   };
 
-  const eliminarProducto = (id) => {
-    setCarrito((prev) => prev.filter((p) => p.id !== id));
+  const eliminarProducto = (key) => {
+    setCarrito((prev) => prev.filter((p) => lineKey(p) !== key));
   };
 
   const handleConfirmarVenta = async ({ descuento, pagos, metodoPagoPrincipal, totalACobrar }) => {
@@ -135,26 +153,33 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
                 <div className="space-y-3">
                   {carrito.map((producto) => {
                     const productoActual = productos.find((p) => p.id === producto.id);
+                    const key = lineKey(producto);
                     const alMaximoStock =
-                      (productoActual ? stockDisponible(productoActual) : 0) <= producto.cantidad;
+                      cantidadTotalProducto(producto.id) >=
+                      (productoActual ? stockDisponible(productoActual) : 0);
 
                     return (
-                    <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={key} className="bg-zinc-800 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{producto.nombre}</p>
-                        <p className="text-sm text-zinc-400">{producto.categoria}</p>
+                        <p className="text-sm text-zinc-400">
+                          {producto.categoria}
+                          <span className="ml-2 text-xs uppercase tracking-wide text-zinc-500">
+                            · {producto.tipoPrecio === 'mesa' ? 'Precio mesa' : 'Precio mostrador'}
+                          </span>
+                        </p>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                         <div className="flex items-center gap-2 bg-zinc-700 rounded-lg shrink-0">
                           <button
-                            onClick={() => disminuirCantidad(producto.id)}
+                            onClick={() => disminuirCantidad(key)}
                             className="p-2 hover:bg-zinc-600 rounded-l-lg transition-colors"
                           >
                             <Minus className="w-4 h-4" />
                           </button>
                           <span className="px-3 min-w-[2rem] text-center">{producto.cantidad}</span>
                           <button
-                            onClick={() => aumentarCantidad(producto.id)}
+                            onClick={() => aumentarCantidad(key)}
                             disabled={alMaximoStock}
                             className="p-2 hover:bg-zinc-600 rounded-r-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           >
@@ -165,7 +190,7 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
                           ${(producto.precio * producto.cantidad).toLocaleString()}
                         </p>
                         <button
-                          onClick={() => eliminarProducto(producto.id)}
+                          onClick={() => eliminarProducto(key)}
                           className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-red-500"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -52,9 +52,14 @@ export function validarCantidadStock(producto, cantidadDeseada) {
 }
 
 export function validarCarritoStock(productos, carrito) {
-  for (const item of carrito) {
-    const producto = productos.find((p) => p.id === item.id);
-    const validacion = validarCantidadStock(producto, item.cantidad);
+  const cantidadesPorProducto = carrito.reduce((acc, item) => {
+    acc[item.id] = (acc[item.id] ?? 0) + item.cantidad;
+    return acc;
+  }, {});
+
+  for (const [productoId, cantidad] of Object.entries(cantidadesPorProducto)) {
+    const producto = productos.find((p) => String(p.id) === String(productoId));
+    const validacion = validarCantidadStock(producto, cantidad);
     if (!validacion.ok) {
       return validacion;
     }

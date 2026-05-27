@@ -13,6 +13,7 @@ import { Stats } from './components/Stats.jsx';
 import { Login } from './components/Login.jsx';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useDataStore } from './hooks/useDataStore.jsx';
+import { formatearFechaCorta, parseFechaDB } from './lib/fechas.js';
 
 export default function App() {
   const { user: usuarioActual, loading: authLoading, logout } = useAuth();
@@ -75,7 +76,7 @@ export default function App() {
     const ahora = new Date();
     return store.ventas
       .filter((v) => {
-        const d = new Date(v.fecha);
+        const d = parseFechaDB(v.fecha);
         return d.getMonth() === ahora.getMonth() && d.getFullYear() === ahora.getFullYear();
       })
       .reduce((sum, v) => sum + v.total, 0);
@@ -603,7 +604,7 @@ export default function App() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-1">
                           <p className="font-bold text-white">{log.mensaje}</p>
                           <span className="text-xs text-zinc-500">
-                            {new Date(log.fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })} hs
+                            {formatearFechaCorta(log.fecha)} hs
                           </span>
                         </div>
                         <p className="text-sm text-zinc-400">{log.detalle}</p>

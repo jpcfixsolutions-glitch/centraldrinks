@@ -1,3 +1,5 @@
+import { parseFechaDB } from '../lib/fechas.js';
+
 export function esMetodoEfectivo(nombre) {
   return (nombre || '').toLowerCase().includes('efectivo');
 }
@@ -8,7 +10,7 @@ export function calcularResumenDesdeVentas({ efectivoInicial, ventas, pagosPorVe
 
   const ventasFiltradas = ventas.filter((v) => {
     if (!fechaApertura) return true;
-    return new Date(v.fecha) >= new Date(fechaApertura);
+    return parseFechaDB(v.fecha) >= parseFechaDB(fechaApertura);
   });
 
   for (const venta of ventasFiltradas) {
@@ -28,7 +30,7 @@ export function calcularResumenDesdeVentas({ efectivoInicial, ventas, pagosPorVe
 
   const gastosFiltrados = gastos.filter((g) => {
     if (!fechaApertura) return true;
-    return new Date(g.fecha) >= new Date(fechaApertura);
+    return parseFechaDB(g.fecha) >= parseFechaDB(fechaApertura);
   });
 
   const egresoEfectivo = gastosFiltrados

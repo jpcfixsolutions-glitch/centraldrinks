@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Plus, Calendar, Trash2 } from 'lucide-react';
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
+import { fechaLocalClave, formatearFechaHora } from '../lib/fechas.js';
 
 export function GestionMesas({
   onVolver,
@@ -66,19 +67,10 @@ export function GestionMesas({
   };
 
   const ventasFiltradas = fechaFiltro
-    ? ventasMesa.filter((v) => new Date(v.fecha).toISOString().split('T')[0] === fechaFiltro)
+    ? ventasMesa.filter((v) => fechaLocalClave(v.fecha) === fechaFiltro)
     : ventasMesa;
 
-  const formatearFecha = (fecha) => {
-    return new Date(fecha).toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  };
+  const formatearFecha = (fecha) => formatearFechaHora(fecha);
 
   const ultimaMesaId = mesas.reduce((max, m) => (m.id > max ? m.id : max), 0);
 

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, CreditCard, Wallet, Calendar, Receipt, Activity, Plus, X, List, Package, RefreshCw } from 'lucide-react';
+import { formatearFechaHora, parseFechaDB } from '../lib/fechas.js';
 
 export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], productos = [], onCrearGasto }) {
   const [rangoTiempo, setRangoTiempo] = useState('mes');
@@ -29,8 +30,8 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
       fechaInicio.setMonth(ahora.getMonth() - 1);
     }
 
-    const ventasFiltradas = ventas.filter(v => new Date(v.fecha) >= fechaInicio);
-    const gastosFiltrados = gastos.filter(g => new Date(g.fecha) >= fechaInicio);
+    const ventasFiltradas = ventas.filter((v) => parseFechaDB(v.fecha) >= fechaInicio);
+    const gastosFiltrados = gastos.filter((g) => parseFechaDB(g.fecha) >= fechaInicio);
 
     let total = 0;
     let efectivo = 0;
@@ -63,7 +64,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
     const movimientosCombinados = [
       ...ventasFiltradas.map(v => ({
         id: `v-${v.id}`,
-        fechaOriginal: new Date(v.fecha),
+        fechaOriginal: parseFechaDB(v.fecha),
         tipo: 'ingreso',
         asunto: `Venta ${v.tipo === 'mostrador' ? 'Mostrador' : 'Mesa'} #${v.codigo || v.id}`,
         metodo: v.metodoPago,
@@ -71,7 +72,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
       })),
       ...gastosFiltrados.map(g => ({
         id: `g-${g.id}`,
-        fechaOriginal: new Date(g.fecha),
+        fechaOriginal: parseFechaDB(g.fecha),
         tipo: 'egreso',
         asunto: g.asunto,
         metodo: g.metodo,
@@ -300,11 +301,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
                   <tr key={mov.id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="px-6 py-4">
                       <span className="text-zinc-400 text-sm">
-                        {mov.fechaOriginal.toLocaleString('es-ES', {
-                          day: '2-digit', month: '2-digit', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                          hour12: false
-                        })}
+                        {formatearFechaHora(mov.fechaOriginal)}
                       </span>
                     </td>
                     <td className="px-6 py-4">

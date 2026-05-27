@@ -1,3 +1,5 @@
+import { parseFechaDB } from './fechas.js';
+
 export function ventaATicketProps(venta) {
   const items = venta.items?.length
     ? venta.items
@@ -18,6 +20,6 @@ export function ventaATicketProps(venta) {
     tipo: venta.tipo,
     numeroMesa: venta.numeroMesa,
     codigo: venta.codigo,
-    fecha: venta.fecha ? new Date(venta.fecha) : new Date(),
+    fecha: venta.fecha ? parseFechaDB(venta.fecha) : new Date(),
   };
 }

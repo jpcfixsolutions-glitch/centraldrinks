@@ -1,3 +1,5 @@
+import { parseFechaDB } from './fechas.js';
+
 export function esMetodoEfectivo(nombre) {
   return (nombre || '').toLowerCase().includes('efectivo');
 }
@@ -8,7 +10,7 @@ export function calcularResumenCaja({ efectivoInicial = 0, ventas = [], gastos =
 
   const ventasSesion = ventas.filter((v) => {
     if (fechaApertura && v.fecha) {
-      return new Date(v.fecha) >= new Date(fechaApertura);
+      return parseFechaDB(v.fecha) >= parseFechaDB(fechaApertura);
     }
     return true;
   });
@@ -30,7 +32,7 @@ export function calcularResumenCaja({ efectivoInicial = 0, ventas = [], gastos =
 
   const gastosSesion = gastos.filter((g) => {
     if (!fechaApertura || !g.fecha) return true;
-    return new Date(g.fecha) >= new Date(fechaApertura);
+    return parseFechaDB(g.fecha) >= parseFechaDB(fechaApertura);
   });
 
   const egresoEfectivo = gastosSesion

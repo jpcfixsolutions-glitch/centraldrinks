@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, Eye, DollarSign, Receipt, Lock, Wallet, CreditCard } from 'lucide-react';
 import { cajasApi } from '../lib/api.js';
+import { fechaLocalClave, formatearFecha, formatearFechaHora, formatearHora } from '../lib/fechas.js';
 import { CerrarCajaModal } from './CerrarCajaModal.jsx';
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
@@ -16,24 +17,13 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
 
   const cierresFiltrados = cierres.filter((cierre) => {
     const fechaMatch = fechaFiltro
-      ? new Date(cierre.fechaCierre).toISOString().split('T')[0] === fechaFiltro
+      ? fechaLocalClave(cierre.fechaCierre) === fechaFiltro
       : true;
     const empleadoMatch = empleadoFiltro === 'todos' || cierre.empleado === empleadoFiltro;
     return fechaMatch && empleadoMatch;
   });
 
   const cajaActualTotal = ventasAbiertas.reduce((sum, v) => sum + v.total, 0);
-
-  const formatearFechaHora = (fecha) =>
-    new Date(fecha).toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
 
   const resumen = cajaActual?.resumen;
 
@@ -235,12 +225,6 @@ function DetalleCajaModal({ cierreId, onClose, metodosPago }) {
       cancelado = true;
     };
   }, [cierreId]);
-
-  const formatearFecha = (fecha) =>
-    new Date(fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-  const formatearHora = (fecha) =>
-    new Date(fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
   if (error) {
     return (

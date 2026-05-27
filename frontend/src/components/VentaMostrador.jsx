@@ -7,6 +7,7 @@ import { ConfirmarImprimirTicketModal } from './ConfirmarImprimirTicketModal.jsx
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
+import { formatearFechaCorta } from '../lib/fechas.js';
 
 export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onRegistrarVenta }) {
   const [carrito, setCarrito] = useState([]);
@@ -224,14 +225,7 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
                             {venta.metodoPago} · #{venta.codigo}
                           </p>
                           <p className="text-xs text-zinc-400">
-                            {new Date(venta.fecha).toLocaleString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour12: false,
-                            })}{' '}
-                            hs
+                            {formatearFechaCorta(venta.fecha)} hs
                           </p>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:text-right shrink-0">

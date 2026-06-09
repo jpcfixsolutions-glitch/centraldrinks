@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 const SECRET = process.env.JWT_SECRET ?? 'desarrollo_secreto_inseguro';
-const EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '7d';
+const EXPIRES_IN = '1d';
 
 export function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });

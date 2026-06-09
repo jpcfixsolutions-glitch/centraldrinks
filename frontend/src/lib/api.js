@@ -2,6 +2,7 @@ const configuredUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, '');
 const API_URL = configuredUrl ?? (import.meta.env.DEV ? '/api' : '');
 
 const TOKEN_KEY = 'centraldrinks_token';
+export const AUTH_EXPIRED_EVENT = 'centraldrinks:auth-expired';
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -61,6 +62,11 @@ export async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && auth && getToken()) {
+      setToken(null);
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+    }
+
     const message =
       data && typeof data === 'object' && typeof data.error === 'string'
         ? data.error

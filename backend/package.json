@@ -13,7 +13,9 @@
     "db:seed-categorias": "node src/db/seed-categorias.js",
     "db:fix-stock": "node src/db/fix-stock-negativo.js",
     "db:reset-cajas": "node src/db/reset-cajas.js",
-    "db:reset-historial": "node src/db/reset-historial.js"
+    "db:reset-historial": "node src/db/reset-historial.js",
+    "db:exportar-ventas": "node src/db/exportar-ventas.js",
+    "db:reset-stats": "node src/db/reset-stats.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

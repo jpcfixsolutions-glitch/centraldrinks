@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle, Pencil, Check, X } from 'lucide-react';
 import { AgregarProductoMesaModal } from './AgregarProductoMesaModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
@@ -15,13 +15,38 @@ export function VentaMesa({
   productos,
   cargaInicial,
   onActualizarCarga,
+  nombreMesa = '',
+  onActualizarNombre,
 }) {
   const [carrito, setCarrito] = useState(cargaInicial || []);
   const [showAgregarModal, setShowAgregarModal] = useState(false);
   const [showCerrarMesaModal, setShowCerrarMesaModal] = useState(false);
   const [ventaRecienRegistrada, setVentaRecienRegistrada] = useState(null);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nombreEditado, setNombreEditado] = useState(nombreMesa);
+  const inputNombreRef = useRef(null);
   const ticketPreCobroRef = useRef(null);
   const { imprimirVenta, TicketOculto } = useImprimirVentaTicket(metodosPago);
+
+  const handleIniciarEdicionNombre = () => {
+    setNombreEditado(nombreMesa);
+    setEditandoNombre(true);
+    setTimeout(() => inputNombreRef.current?.focus(), 0);
+  };
+
+  const handleGuardarNombre = () => {
+    onActualizarNombre?.(numeroMesa, nombreEditado.trim());
+    setEditandoNombre(false);
+  };
+
+  const handleCancelarNombre = () => {
+    setEditandoNombre(false);
+  };
+
+  const handleKeyDownNombre = (e) => {
+    if (e.key === 'Enter') handleGuardarNombre();
+    if (e.key === 'Escape') handleCancelarNombre();
+  };
 
   useEffect(() => {
     onActualizarCarga(numeroMesa, carrito);
@@ -134,7 +159,50 @@ export function VentaMesa({
             <button onClick={onVolver} className="hover:bg-zinc-800 p-2 rounded-lg transition-colors shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-xl sm:text-2xl font-bold">Mesa {numeroMesa}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold">Mesa {numeroMesa}</h1>
+                {!editandoNombre && nombreMesa && (
+                  <span className="text-xl sm:text-2xl font-bold text-red-400">— {nombreMesa}</span>
+                )}
+                {!editandoNombre && (
+                  <button
+                    onClick={handleIniciarEdicionNombre}
+                    className="p-1 hover:bg-zinc-700 rounded transition-colors text-zinc-500 hover:text-white"
+                    title={nombreMesa ? 'Editar nombre' : 'Agregar nombre'}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {editandoNombre && (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    ref={inputNombreRef}
+                    value={nombreEditado}
+                    onChange={(e) => setNombreEditado(e.target.value)}
+                    onKeyDown={handleKeyDownNombre}
+                    placeholder="Nombre del cliente (ej: Pepito)"
+                    maxLength={20}
+                    className="bg-zinc-800 border border-zinc-600 focus:border-red-500 rounded px-3 py-1.5 text-sm text-white focus:outline-none w-48"
+                  />
+                  <button
+                    onClick={handleGuardarNombre}
+                    className="p-1.5 bg-green-600/20 hover:bg-green-600/30 rounded text-green-400"
+                    title="Guardar"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleCancelarNombre}
+                    className="p-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-zinc-400"
+                    title="Cancelar"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setShowAgregarModal(true)}

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Plus, Calendar, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowLeft, Plus, Calendar, Trash2, Pencil, Check, X } from 'lucide-react';
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 import { fechaLocalClave, formatearFechaHora } from '../lib/fechas.js';
@@ -8,18 +8,48 @@ export function GestionMesas({
   onVolver,
   mesas,
   cargaMesas,
+  nombresMesas = {},
   ventasMesa,
   metodosPago,
   onAbrirMesa,
   onCrearMesa,
   onEliminarMesa,
+  onActualizarNombreMesa,
   esAdministrador,
 }) {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [mesaAEliminar, setMesaAEliminar] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [procesando, setProcesando] = useState(false);
+  const [mesaEditando, setMesaEditando] = useState(null);
+  const [nombreEditado, setNombreEditado] = useState('');
+  const inputRef = useRef(null);
   const { imprimirVenta, TicketOculto } = useImprimirVentaTicket(metodosPago);
+
+  const handleIniciarEdicion = (e, numeroMesa) => {
+    e.stopPropagation();
+    setMesaEditando(numeroMesa);
+    setNombreEditado(nombresMesas[numeroMesa] || '');
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleGuardarNombre = (e) => {
+    e?.stopPropagation();
+    if (mesaEditando !== null) {
+      onActualizarNombreMesa(mesaEditando, nombreEditado.trim());
+    }
+    setMesaEditando(null);
+  };
+
+  const handleCancelarEdicion = (e) => {
+    e?.stopPropagation();
+    setMesaEditando(null);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleGuardarNombre(e);
+    if (e.key === 'Escape') handleCancelarEdicion(e);
+  };
 
   const getEstadoMesa = (numeroMesa) => {
     const productos = cargaMesas[numeroMesa];
@@ -116,6 +146,9 @@ export function GestionMesas({
               const esUltimaMesa = mesa.id === ultimaMesaId;
               const estadoReal = getEstadoMesa(mesa.numero);
 
+              const nombreActual = nombresMesas[mesa.numero] || '';
+              const estaEditando = mesaEditando === mesa.numero;
+
               return (
                 <div
                   key={mesa.id}
@@ -125,11 +158,60 @@ export function GestionMesas({
                     <div
                       className={`absolute top-4 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${getEstadoColor(estadoReal)}`}
                     ></div>
-                    <p className="text-lg font-medium mt-4 mb-1">Mesa {mesa.numero}</p>
+                    <p className="text-lg font-medium mt-4 mb-0.5">Mesa {mesa.numero}</p>
+                    {nombreActual && !estaEditando && (
+                      <p className="text-sm font-semibold text-red-400 truncate mb-0.5">{nombreActual}</p>
+                    )}
                     <p className="text-sm text-zinc-400 capitalize">{estadoReal}</p>
                   </button>
 
-                  {esUltimaMesa && esAdministrador && (
+                  {/* Botón editar nombre */}
+                  {!estaEditando && (
+                    <button
+                      onClick={(e) => handleIniciarEdicion(e, mesa.numero)}
+                      className="absolute bottom-2 right-2 w-6 h-6 rounded bg-zinc-700/60 hover:bg-zinc-600 flex items-center justify-center transition-colors text-zinc-400 hover:text-white"
+                      title="Editar nombre"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Input inline de edición de nombre */}
+                  {estaEditando && (
+                    <div
+                      className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center p-3 gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <p className="text-xs text-zinc-400 font-medium">Mesa {mesa.numero}</p>
+                      <input
+                        ref={inputRef}
+                        value={nombreEditado}
+                        onChange={(e) => setNombreEditado(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Nombre (ej: Pepito)"
+                        maxLength={20}
+                        className="w-full bg-zinc-800 border border-zinc-600 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:border-red-500"
+                      />
+                      <div className="flex gap-1">
+                        <button
+                          onClick={handleGuardarNombre}
+                          className="w-7 h-7 rounded bg-green-600/20 hover:bg-green-600/30 flex items-center justify-center text-green-400"
+                          title="Guardar"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={handleCancelarEdicion}
+                          className="w-7 h-7 rounded bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center text-zinc-400"
+                          title="Cancelar"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {esUltimaMesa && esAdministrador && !estaEditando && (
                     <div className="absolute right-2 top-2">
                       <button
                         onClick={(e) => {

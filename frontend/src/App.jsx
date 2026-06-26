@@ -20,6 +20,7 @@ export default function App() {
   const [vistaActual, setVistaActual] = useState('home');
   const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
   const [cargaMesas, setCargaMesas] = useState({});
+  const [nombresMesas, setNombresMesas] = useState({});
   const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
   const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
 
@@ -32,10 +33,18 @@ export default function App() {
     setVistaActual('home');
     setMesaSeleccionada(null);
     setCargaMesas({});
+    setNombresMesas({});
   };
 
   const handleAbrirMesa = (numeroMesa) => {
     setMesaSeleccionada(numeroMesa);
+  };
+
+  const handleActualizarNombreMesa = (numeroMesa, nombre) => {
+    setNombresMesas((prev) => ({
+      ...prev,
+      [numeroMesa]: nombre,
+    }));
   };
 
   const handleActualizarCargaMesa = (numeroMesa, productos) => {
@@ -52,9 +61,24 @@ export default function App() {
       delete nuevo[numeroMesa];
       return nuevo;
     });
+    setNombresMesas((prev) => {
+      const nuevo = { ...prev };
+      delete nuevo[numeroMesa];
+      return nuevo;
+    });
     setMesaSeleccionada(null);
     return venta;
   };
+
+  const mesasPendientes = useMemo(() => {
+    return Object.entries(cargaMesas)
+      .filter(([, items]) => items && items.length > 0)
+      .map(([numeroMesa, items]) => ({
+        numeroMesa: Number(numeroMesa),
+        cantidadItems: items.reduce((sum, i) => sum + i.cantidad, 0),
+        total: items.reduce((sum, i) => sum + i.precio * i.cantidad, 0),
+      }));
+  }, [cargaMesas]);
 
   const ventasAbiertas = useMemo(() => {
     const sesionId = store.cajaActual?.sesion?.id;
@@ -286,17 +310,21 @@ export default function App() {
                 productos={store.productos}
                 cargaInicial={cargaMesas[mesaSeleccionada] || []}
                 onActualizarCarga={handleActualizarCargaMesa}
+                nombreMesa={nombresMesas[mesaSeleccionada] || ''}
+                onActualizarNombre={handleActualizarNombreMesa}
               />
             ) : (
               <GestionMesas
                 onVolver={() => setVistaActual('home')}
                 mesas={store.mesas}
                 cargaMesas={cargaMesas}
+                nombresMesas={nombresMesas}
                 ventasMesa={ventasAbiertas.filter((v) => v.tipo === 'mesa')}
                 metodosPago={store.metodosPago}
                 onAbrirMesa={handleAbrirMesa}
                 onCrearMesa={store.crearMesa}
                 onEliminarMesa={store.eliminarMesa}
+                onActualizarNombreMesa={handleActualizarNombreMesa}
                 esAdministrador={esAdministrador}
               />
             )}
@@ -350,6 +378,7 @@ export default function App() {
           cajaActual={store.cajaActual}
           onCerrarCaja={store.cerrarCajaActual}
           metodosPago={store.metodosPago}
+          mesasPendientes={mesasPendientes}
         />
     );
   } else if (vistaActual === 'stats') {
@@ -751,6 +780,7 @@ export default function App() {
         totalVentas={totalVentasAbiertas}
         resumen={resumenCaja}
         efectivoInicial={store.cajaActual?.sesion?.efectivoInicial ?? 0}
+        mesasPendientes={mesasPendientes}
       />
     </div>
   );

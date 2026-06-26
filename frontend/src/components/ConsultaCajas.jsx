@@ -6,7 +6,7 @@ import { CerrarCajaModal } from './CerrarCajaModal.jsx';
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 
-export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja, metodosPago }) {
+export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, onCerrarCaja, metodosPago, mesasPendientes = [] }) {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [empleadoFiltro, setEmpleadoFiltro] = useState('todos');
   const [cajaSeleccionada, setCajaSeleccionada] = useState(null);
@@ -200,6 +200,7 @@ export function ConsultaCajas({ onVolver, cierres, ventasAbiertas, cajaActual, o
         totalVentas={cajaActualTotal}
         resumen={resumen}
         efectivoInicial={cajaActual?.sesion?.efectivoInicial ?? 0}
+        mesasPendientes={mesasPendientes}
       />
     </>
   );

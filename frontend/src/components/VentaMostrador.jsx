@@ -1,12 +1,14 @@
-import { useState, useRef, useMemo } from 'react';
-import { ArrowLeft, Plus, Printer, DollarSign, Trash2, Minus, Receipt } from 'lucide-react';
+import { useState, useRef, useMemo, useCallback } from 'react';
+import { ArrowLeft, Plus, Printer, DollarSign, Trash2, Minus, Receipt, ScanBarcode } from 'lucide-react';
 import { AgregarProductoModal } from './AgregarProductoModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
 import { ConfirmarImprimirTicketModal } from './ConfirmarImprimirTicketModal.jsx';
 import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
 import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
+import { productoPorCodBarra } from '../lib/productos.js';
 import { formatearFechaCorta } from '../lib/fechas.js';
 
 export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onRegistrarVenta }) {
@@ -52,6 +54,29 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
       return [...prev, { ...producto, tipoPrecio, cantidad: 1 }];
     });
   };
+
+  const handleScanCodBarra = useCallback(
+    (codigo) => {
+      const producto = productoPorCodBarra(productos, codigo);
+      if (!producto) {
+        alert(`No se encontró producto con código ${codigo}`);
+        return;
+      }
+      agregarProducto({
+        id: producto.id,
+        nombre: producto.nombre,
+        categoria: producto.categoria || 'Sin categoría',
+        precio: producto.precioMostrador,
+        imagen: producto.imagen,
+      });
+    },
+    [productos, cantidadesCarrito]
+  );
+
+  useBarcodeScanner({
+    enabled: !showAgregarModal && !showCobrarModal && !ventaRecienRegistrada,
+    onScan: handleScanCodBarra,
+  });
 
   const aumentarCantidad = (key) => {
     const itemCarrito = carrito.find((p) => lineKey(p) === key);
@@ -134,6 +159,10 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-xl sm:text-2xl font-bold truncate">Venta Mostrador</h1>
+            <p className="text-sm text-zinc-500 flex items-center gap-1.5 mt-1">
+              <ScanBarcode className="w-4 h-4" />
+              Escaneá código de barras para agregar al carrito
+            </p>
           </div>
           <button
             onClick={() => setShowAgregarModal(true)}

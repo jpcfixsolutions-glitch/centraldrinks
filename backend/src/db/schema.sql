@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS productos (
   precio_mostrador REAL    NOT NULL DEFAULT 0,
   stock            INTEGER NOT NULL DEFAULT 0,
   stock_minimo     INTEGER NOT NULL DEFAULT 5,
+  codbarra         INTEGER UNIQUE,
   imagen           TEXT,
   activo           INTEGER NOT NULL DEFAULT 1
                    CHECK (activo IN (0, 1)),

@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
-import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle, Pencil, Check, X } from 'lucide-react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle, Pencil, Check, X, ScanBarcode } from 'lucide-react';
 import { AgregarProductoMesaModal } from './AgregarProductoMesaModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
 import { ConfirmarImprimirTicketModal } from './ConfirmarImprimirTicketModal.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
 import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
+import { productoPorCodBarra } from '../lib/productos.js';
 
 export function VentaMesa({
   numeroMesa,
@@ -77,6 +79,29 @@ export function VentaMesa({
       return [...prev, { ...producto, cantidad: 1 }];
     });
   };
+
+  const handleScanCodBarra = useCallback(
+    (codigo) => {
+      const producto = productoPorCodBarra(productos, codigo);
+      if (!producto) {
+        alert(`No se encontró producto con código ${codigo}`);
+        return;
+      }
+      agregarProducto({
+        id: producto.id,
+        nombre: producto.nombre,
+        categoria: producto.categoria || 'Sin categoría',
+        precio: producto.precioMesa,
+        imagen: producto.imagen,
+      });
+    },
+    [productos, cantidadesCarrito]
+  );
+
+  useBarcodeScanner({
+    enabled: !showAgregarModal && !showCerrarMesaModal && !ventaRecienRegistrada && !editandoNombre,
+    onScan: handleScanCodBarra,
+  });
 
   const aumentarCantidad = (id) => {
     const productoActual = productos.find((p) => p.id === id);
@@ -175,6 +200,10 @@ export function VentaMesa({
                   </button>
                 )}
               </div>
+              <p className="text-sm text-zinc-500 flex items-center gap-1.5 mt-1">
+                <ScanBarcode className="w-4 h-4" />
+                Escaneá código de barras para agregar productos
+              </p>
               {editandoNombre && (
                 <div className="flex items-center gap-2 mt-1">
                   <input

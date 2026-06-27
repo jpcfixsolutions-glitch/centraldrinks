@@ -11,6 +11,7 @@ export const productos = sqliteTable('productos', {
   precioMostrador: real('precio_mostrador').notNull().default(0),
   stock: integer('stock').notNull().default(0),
   stockMinimo: integer('stock_minimo').notNull().default(5),
+  codbarra: integer('codbarra'),
   imagen: text('imagen'),
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),

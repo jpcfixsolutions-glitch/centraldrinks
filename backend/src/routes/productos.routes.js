@@ -7,6 +7,7 @@ const router = Router();
 
 router.use(requireAuth);
 router.get('/', asyncHandler(ctrl.listar));
+router.get('/codbarra/:codbarra', asyncHandler(ctrl.buscarPorCodBarra));
 router.post('/', requireRole('administrador'), asyncHandler(ctrl.crear));
 router.put('/:id', requireRole('administrador'), asyncHandler(ctrl.actualizar));
 router.delete('/:id', requireRole('administrador'), asyncHandler(ctrl.eliminar));

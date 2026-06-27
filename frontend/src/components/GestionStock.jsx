@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { ArrowLeft, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ArrowLeft, Plus, Search, Edit, Trash2, ScanBarcode } from 'lucide-react';
 import { NuevoProductoModal } from './NuevoProductoModal.jsx';
 import { ConfirmarEliminacionModal } from './ConfirmarEliminacionModal.jsx';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
+import { productoCoincideBusqueda, productoPorCodBarra } from '../lib/productos.js';
 
 export function GestionStock({
   onVolver,
@@ -20,9 +22,10 @@ export function GestionStock({
   const [errorMsg, setErrorMsg] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [productoAEliminar, setProductoAEliminar] = useState(null);
+  const [codBarraInicialModal, setCodBarraInicialModal] = useState('');
 
   const productosFiltrados = productos.filter((p) => {
-    const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase());
+    const matchBusqueda = productoCoincideBusqueda(p, busqueda);
     const matchCategoria = categoriaSeleccionada === 'Todos' || p.categoria === categoriaSeleccionada;
     return matchBusqueda && matchCategoria;
   });
@@ -39,7 +42,8 @@ export function GestionStock({
         precioMostrador: data.precioMostrador,
         stock: data.stock,
         stockMinimo: data.stockMinimo,
-        componentes: data.componentes || [], // Array de { productoId, cantidad }
+        codbarra: data.codbarra,
+        componentes: data.componentes || [],
       };
       if (productoEditando) {
         await onActualizarProducto(productoEditando.id, payload);
@@ -48,6 +52,7 @@ export function GestionStock({
       }
       setShowNuevoProductoModal(false);
       setProductoEditando(null);
+      setCodBarraInicialModal('');
     } catch (err) {
       setErrorMsg(err.message || 'Error al guardar producto');
     } finally {
@@ -66,9 +71,10 @@ export function GestionStock({
     await onEliminarProducto(productoAEliminar.id);
   };
 
-  const abrirModalProducto = (categoriaInicial = null) => {
+  const abrirModalProducto = (categoriaInicial = null, codBarraInicial = '') => {
     setProductoEditando(null);
     setCategoriaInicialModal(categoriaInicial);
+    setCodBarraInicialModal(codBarraInicial);
     setShowNuevoProductoModal(true);
   };
 
@@ -76,7 +82,25 @@ export function GestionStock({
     setShowNuevoProductoModal(false);
     setProductoEditando(null);
     setCategoriaInicialModal(null);
+    setCodBarraInicialModal('');
   };
+
+  const handleScanStock = useCallback(
+    (codigo) => {
+      const producto = productoPorCodBarra(productos, codigo);
+      if (producto) {
+        handleEditarProducto(producto);
+        return;
+      }
+      abrirModalProducto(null, codigo);
+    },
+    [productos]
+  );
+
+  useBarcodeScanner({
+    enabled: !showNuevoProductoModal,
+    onScan: handleScanStock,
+  });
 
   const getCategoriaColor = (categoria) => {
     switch (categoria) {
@@ -140,16 +164,21 @@ export function GestionStock({
         </header>
 
         <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
-          <div className="relative mb-6">
+          <div className="relative mb-3">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
             <input
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre..."
+              placeholder="Buscar por nombre o código de barras..."
+              data-barcode-scanner="true"
               className="w-full bg-zinc-900 rounded-lg pl-12 pr-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-800"
             />
           </div>
+          <p className="mb-6 text-sm text-zinc-500 flex items-center gap-2">
+            <ScanBarcode className="w-4 h-4" />
+            Escaneá un código para editar el producto o crear uno nuevo si no existe.
+          </p>
 
           <div className="flex gap-3 mb-6 flex-wrap">
             {categoriasDisponibles.map((categoria) => (
@@ -173,6 +202,7 @@ export function GestionStock({
                 <thead>
                   <tr className="border-b border-zinc-800">
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Producto</th>
+                    <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Cód. Barra</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Categoría</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Costo Unit.</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400 uppercase tracking-wide">Precio Mesa</th>
@@ -195,6 +225,9 @@ export function GestionStock({
                               Incluye: {producto.componentes.map((c) => `${c.cantidad}x ${c.nombre}`).join(', ')}
                             </p>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-zinc-400 font-mono text-sm">
+                          {producto.codbarra ?? '—'}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-sm font-medium ${getCategoriaColor(producto.categoria)}`}>
@@ -258,6 +291,7 @@ export function GestionStock({
         productos={productos}
         guardando={guardando}
         categoriaInicial={categoriaInicialModal}
+        codBarraInicial={codBarraInicialModal}
       />
 
       <ConfirmarEliminacionModal

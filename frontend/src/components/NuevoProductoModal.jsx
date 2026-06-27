@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Package, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Package, Plus, Trash2, ScanBarcode } from 'lucide-react';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
 
 export function NuevoProductoModal({
   isOpen,
@@ -10,9 +11,11 @@ export function NuevoProductoModal({
   productos = [],
   guardando,
   categoriaInicial = null,
+  codBarraInicial = '',
 }) {
   const [nombre, setNombre] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
+  const [codbarra, setCodbarra] = useState('');
   const [costoUnitario, setCostoUnitario] = useState('');
   const [precioMesa, setPrecioMesa] = useState('');
   const [precioMostrador, setPrecioMostrador] = useState('');
@@ -54,6 +57,7 @@ export function NuevoProductoModal({
         setPrecioMostrador(productoEditando.precioMostrador.toString());
         setStockInicial(productoEditando.stock.toString());
         setStockMinimo(productoEditando.stockMinimo?.toString() || '5');
+        setCodbarra(productoEditando.codbarra != null ? String(productoEditando.codbarra) : '');
         setComponentes(
           (productoEditando.componentes ?? []).map((c) => ({
             productoId: c.productoId,
@@ -71,10 +75,20 @@ export function NuevoProductoModal({
         setPrecioMostrador('');
         setStockInicial('');
         setStockMinimo('');
+        setCodbarra(codBarraInicial ? String(codBarraInicial) : '');
         setComponentes([]);
       }
     }
-  }, [isOpen, productoEditando, categorias, categoriaInicial]);
+  }, [isOpen, productoEditando, categorias, categoriaInicial, codBarraInicial]);
+
+  const handleScanCodBarra = useCallback((codigo) => {
+    setCodbarra(codigo);
+  }, []);
+
+  useBarcodeScanner({
+    enabled: isOpen,
+    onScan: handleScanCodBarra,
+  });
 
   useEffect(() => {
     if (!esPromocion) {
@@ -128,6 +142,7 @@ export function NuevoProductoModal({
       precioMostrador: parseFloat(precioMostrador),
       stock: esPromocion ? 0 : parseInt(stockInicial, 10),
       stockMinimo: stockMinimo ? parseInt(stockMinimo, 10) : 5,
+      codbarra: codbarra.trim() ? parseInt(codbarra, 10) : null,
       componentes: esPromocion ? componentes : [],
     });
   };
@@ -165,6 +180,27 @@ export function NuevoProductoModal({
               placeholder="Ej: Vino Malbec"
               disabled={guardando}
             />
+          </div>
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">
+              Código de Barra
+            </label>
+            <div className="relative">
+              <ScanBarcode className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={codbarra}
+                onChange={(e) => setCodbarra(e.target.value.replace(/\D/g, ''))}
+                data-barcode-scanner="true"
+                className="w-full bg-zinc-800 rounded-lg pl-12 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+                placeholder="Escaneá o escribí el código"
+                disabled={guardando}
+              />
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">Usá la pistola lectora sobre este campo.</p>
           </div>
 
           <div>

@@ -1,4 +1,4 @@
-import { eq, inArray, sql, and } from 'drizzle-orm';
+import { eq, inArray, sql, and, ne } from 'drizzle-orm';
 import { db } from './db.js';
 import { productos } from '../models/productos.model.js';
 import { promocionItems } from '../models/promocionItems.model.js';
@@ -71,6 +71,31 @@ async function guardarComponentes(promocionId, componentes) {
   );
 }
 
+async function validarCodBarraUnico(codbarra, excluirId = null) {
+  if (codbarra == null) return;
+
+  const where =
+    excluirId != null
+      ? and(eq(productos.codbarra, codbarra), ne(productos.id, excluirId))
+      : eq(productos.codbarra, codbarra);
+
+  const [existente] = await db.select({ id: productos.id }).from(productos).where(where).limit(1);
+
+  if (existente) {
+    const err = new Error(`El código de barras ${codbarra} ya está asignado a otro producto`);
+    err.status = 409;
+    throw err;
+  }
+}
+
+export async function buscarPorCodBarra(codbarra) {
+  const codigo = Number(codbarra);
+  if (!Number.isFinite(codigo) || codigo <= 0) return null;
+
+  const lista = await listar();
+  return lista.find((p) => p.codbarra === codigo) ?? null;
+}
+
 export async function listar() {
   const lista = await db
     .select({
@@ -83,6 +108,7 @@ export async function listar() {
       precioMostrador: productos.precioMostrador,
       stock: productos.stock,
       stockMinimo: productos.stockMinimo,
+      codbarra: productos.codbarra,
       imagen: productos.imagen,
       activo: productos.activo,
     })
@@ -109,6 +135,8 @@ export async function listar() {
 export async function crear(data) {
   const { componentes, ...productoData } = data;
 
+  await validarCodBarraUnico(productoData.codbarra ?? null);
+
   if (componentes?.length > 0) {
     productoData.stock = 0;
   }
@@ -132,6 +160,10 @@ export async function crear(data) {
 
 export async function actualizar(id, data) {
   const { componentes, ...productoData } = data;
+
+  if (productoData.codbarra !== undefined) {
+    await validarCodBarraUnico(productoData.codbarra ?? null, id);
+  }
 
   if (componentes !== undefined) {
     if (componentes.length > 0) {

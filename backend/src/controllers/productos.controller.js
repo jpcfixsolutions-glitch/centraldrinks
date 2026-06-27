@@ -6,6 +6,15 @@ const componenteSchema = z.object({
   cantidad: z.number().int().positive().default(1),
 });
 
+const codbarraSchema = z.preprocess(
+  (val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    const numero = Number(val);
+    return Number.isFinite(numero) ? numero : val;
+  },
+  z.number().int().positive().nullable().optional()
+);
+
 const productoSchema = z.object({
   nombre: z.string().min(1),
   categoriaId: z.number().int().nullable().optional(),
@@ -14,6 +23,7 @@ const productoSchema = z.object({
   precioMostrador: z.number().nonnegative().default(0),
   stock: z.number().int().nonnegative().default(0),
   stockMinimo: z.number().int().nonnegative().optional(),
+  codbarra: codbarraSchema,
   imagen: z.string().url().nullable().optional(),
   componentes: z.array(componenteSchema).optional(),
 });
@@ -22,6 +32,13 @@ const productoUpdateSchema = productoSchema.partial();
 
 export async function listar(_req, res) {
   res.json(await productosService.listar());
+}
+
+export async function buscarPorCodBarra(req, res) {
+  const codbarra = req.params.codbarra;
+  const producto = await productosService.buscarPorCodBarra(codbarra);
+  if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  res.json(producto);
 }
 
 export async function crear(req, res) {

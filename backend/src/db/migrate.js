@@ -12,6 +12,13 @@ async function run() {
   const sql = readFileSync(SCHEMA_PATH, 'utf8');
 
   console.log('[migrate] Aplicando schema en la base de datos...');
+
+  try {
+    await client.execute('ALTER TABLE productos ADD COLUMN codbarra INTEGER');
+  } catch {
+    // columna ya existe
+  }
+
   await client.executeMultiple(sql);
 
   const migracionesCaja = [
@@ -43,8 +50,13 @@ async function run() {
 
   try {
     await client.execute(
-      "UPDATE cierres_caja SET fecha_apertura = fecha_cierre WHERE fecha_apertura IS NULL AND fecha_cierre IS NOT NULL"
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_codbarra ON productos(codbarra) WHERE codbarra IS NOT NULL'
     );
+  } catch {
+    // índice ya existe
+  }
+
+  try {
     await client.execute('UPDATE cierres_caja SET abierta = 0 WHERE fecha_cierre IS NOT NULL');
     await client.execute('CREATE INDEX IF NOT EXISTS idx_cierres_abierta ON cierres_caja(abierta)');
   } catch {

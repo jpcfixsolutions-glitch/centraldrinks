@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  MapPin,
 } from 'lucide-react';
 
 function NavButton({ active, onClick, title, children, className = '' }) {
@@ -48,6 +49,7 @@ export function AppNav({
   puedeAccederStock,
   puedeAccederCajas,
   puedeAccederConfiguracion,
+  sucursalNombre,
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
 
@@ -73,7 +75,19 @@ export function AppNav({
           C22
         </div>
 
-        <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2 flex-1">
+        {/* Badge de sucursal (desktop) */}
+        {sucursalNombre && (
+          <div
+            className="mt-1.5 w-12 flex items-center justify-center"
+            title={`Sucursal: ${sucursalNombre}`}
+          >
+            <span className="text-[9px] font-semibold text-zinc-400 text-center leading-tight px-0.5 truncate w-full text-center">
+              {sucursalNombre}
+            </span>
+          </div>
+        )}
+
+        <nav className="mt-3 flex flex-col items-center gap-2 w-full px-2 flex-1">
           <NavButton active={active === 'home'} onClick={() => ir('home')} title="Inicio">
             <Home className="w-5 h-5" />
           </NavButton>
@@ -159,7 +173,15 @@ export function AppNav({
           />
           <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 rounded-t-2xl p-4 pb-6 max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4 px-1">
-              <p className="font-bold text-white">Más opciones</p>
+              <div>
+                <p className="font-bold text-white">Más opciones</p>
+                {sucursalNombre && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3 text-red-400 shrink-0" />
+                    <span className="text-xs text-zinc-400">{sucursalNombre}</span>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setMenuAbierto(false)}
                 className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"

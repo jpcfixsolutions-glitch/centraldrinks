@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 import { usuarios } from './usuarios.model.js';
+import { sucursales } from './sucursales.model.js';
 
 export const cierresCaja = sqliteTable('cierres_caja', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -16,4 +17,5 @@ export const cierresCaja = sqliteTable('cierres_caja', {
   ingresoVirtual: real('ingreso_virtual').notNull().default(0),
   egresoEfectivo: real('egreso_efectivo').notNull().default(0),
   fechaCierre: text('fecha_cierre'),
+  sucursalId: integer('sucursal_id').references(() => sucursales.id),
 });

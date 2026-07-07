@@ -10,8 +10,8 @@ const usuarioSchema = z.object({
 
 const usuarioUpdateSchema = usuarioSchema.partial();
 
-export async function listar(_req, res) {
-  res.json(await usuariosService.listar());
+export async function listar(req, res) {
+  res.json(await usuariosService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function crear(req, res) {
@@ -25,7 +25,7 @@ export async function crear(req, res) {
     return res.status(409).json({ error: 'El usuario ya existe' });
   }
 
-  const creado = await usuariosService.crear(parsed.data);
+  const creado = await usuariosService.crear(parsed.data, req.user?.sucursalId ?? null);
   res.status(201).json(creado);
 }
 
@@ -38,7 +38,7 @@ export async function actualizar(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
 
-  const actualizado = await usuariosService.actualizar(id, parsed.data);
+  const actualizado = await usuariosService.actualizar(id, parsed.data, req.user?.sucursalId ?? null);
   if (!actualizado) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json(actualizado);
 }
@@ -47,7 +47,7 @@ export async function eliminar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-  const ok = await usuariosService.eliminar(id);
+  const ok = await usuariosService.eliminar(id, req.user?.sucursalId ?? null);
   if (!ok) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json({ ok: true });
 }

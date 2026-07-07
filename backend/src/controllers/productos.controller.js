@@ -30,13 +30,13 @@ const productoSchema = z.object({
 
 const productoUpdateSchema = productoSchema.partial();
 
-export async function listar(_req, res) {
-  res.json(await productosService.listar());
+export async function listar(req, res) {
+  res.json(await productosService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function buscarPorCodBarra(req, res) {
   const codbarra = req.params.codbarra;
-  const producto = await productosService.buscarPorCodBarra(codbarra);
+  const producto = await productosService.buscarPorCodBarra(codbarra, req.user?.sucursalId ?? null);
   if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json(producto);
 }
@@ -47,7 +47,7 @@ export async function crear(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
   try {
-    const creado = await productosService.crear(parsed.data);
+    const creado = await productosService.crear(parsed.data, req.user?.sucursalId ?? null);
     res.status(201).json(creado);
   } catch (err) {
     res.status(err.status ?? 500).json({ error: err.message ?? 'Error al crear producto' });
@@ -64,7 +64,7 @@ export async function actualizar(req, res) {
   }
 
   try {
-    const actualizado = await productosService.actualizar(id, parsed.data);
+    const actualizado = await productosService.actualizar(id, parsed.data, req.user?.sucursalId ?? null);
     if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json(actualizado);
   } catch (err) {
@@ -76,7 +76,7 @@ export async function eliminar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-  const ok = await productosService.eliminar(id);
+  const ok = await productosService.eliminar(id, req.user?.sucursalId ?? null);
   if (!ok) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json({ ok: true });
 }

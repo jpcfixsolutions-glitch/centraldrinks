@@ -242,6 +242,7 @@ export default function App() {
       puedeAccederStock={puedeAccederStock}
       puedeAccederCajas={puedeAccederCajas}
       puedeAccederConfiguracion={puedeAccederConfiguracion}
+      sucursalNombre={usuarioActual.sucursalNombre ?? null}
     />
   );
 
@@ -400,7 +401,15 @@ export default function App() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Panel de Inicio</h1>
-            <p className="text-zinc-400 text-sm">Resumen en vivo de tu negocio</p>
+            <div className="flex items-center gap-2">
+              <p className="text-zinc-400 text-sm">Resumen en vivo de tu negocio</p>
+              {usuarioActual.sucursalNombre && (
+                <span className="inline-flex items-center gap-1 bg-red-600/20 text-red-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-red-600/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  {usuarioActual.sucursalNombre}
+                </span>
+              )}
+            </div>
             </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <button onClick={() => setShowRetirarModal(true)} className="bg-zinc-800 hover:bg-zinc-700 transition-colors rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 font-medium text-zinc-300 text-sm sm:text-base">

@@ -9,6 +9,7 @@
     "start": "node src/server.js",
     "db:migrate": "node src/db/migrate.js",
     "db:migrate-caja": "node src/db/migrate-caja-sesion.js",
+    "db:migrate-sucursales": "node src/db/migrate-sucursales.js",
     "db:seed-usuarios": "node src/db/seed-usuarios.js",
     "db:seed-categorias": "node src/db/seed-categorias.js",
     "db:fix-stock": "node src/db/fix-stock-negativo.js",

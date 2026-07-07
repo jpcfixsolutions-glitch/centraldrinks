@@ -71,15 +71,17 @@ async function guardarComponentes(promocionId, componentes) {
   );
 }
 
-async function validarCodBarraUnico(codbarra, excluirId = null) {
+async function validarCodBarraUnico(codbarra, sucursalId, excluirId = null) {
   if (codbarra == null) return;
 
-  const where =
-    excluirId != null
-      ? and(eq(productos.codbarra, codbarra), ne(productos.id, excluirId))
-      : eq(productos.codbarra, codbarra);
+  const condiciones = [eq(productos.codbarra, codbarra), eq(productos.sucursalId, sucursalId)];
+  if (excluirId != null) condiciones.push(ne(productos.id, excluirId));
 
-  const [existente] = await db.select({ id: productos.id }).from(productos).where(where).limit(1);
+  const [existente] = await db
+    .select({ id: productos.id })
+    .from(productos)
+    .where(and(...condiciones))
+    .limit(1);
 
   if (existente) {
     const err = new Error(`El código de barras ${codbarra} ya está asignado a otro producto`);
@@ -88,15 +90,17 @@ async function validarCodBarraUnico(codbarra, excluirId = null) {
   }
 }
 
-export async function buscarPorCodBarra(codbarra) {
+export async function buscarPorCodBarra(codbarra, sucursalId) {
   const codigo = Number(codbarra);
   if (!Number.isFinite(codigo) || codigo <= 0) return null;
 
-  const lista = await listar();
+  const lista = await listar(sucursalId);
   return lista.find((p) => p.codbarra === codigo) ?? null;
 }
 
-export async function listar() {
+export async function listar(sucursalId) {
+  const where = sucursalId != null ? eq(productos.sucursalId, sucursalId) : undefined;
+
   const lista = await db
     .select({
       id: productos.id,
@@ -113,7 +117,8 @@ export async function listar() {
       activo: productos.activo,
     })
     .from(productos)
-    .leftJoin(categorias, eq(productos.categoriaId, categorias.id));
+    .leftJoin(categorias, eq(productos.categoriaId, categorias.id))
+    .where(where);
 
   const promocionIds = lista.filter((p) => p.categoria === 'Promociones').map((p) => p.id);
   const componentesMap = await obtenerComponentesPorPromociones(promocionIds);
@@ -132,16 +137,19 @@ export async function listar() {
   });
 }
 
-export async function crear(data) {
+export async function crear(data, sucursalId) {
   const { componentes, ...productoData } = data;
 
-  await validarCodBarraUnico(productoData.codbarra ?? null);
+  await validarCodBarraUnico(productoData.codbarra ?? null, sucursalId);
 
   if (componentes?.length > 0) {
     productoData.stock = 0;
   }
 
-  const [creado] = await db.insert(productos).values(productoData).returning();
+  const [creado] = await db
+    .insert(productos)
+    .values({ ...productoData, sucursalId })
+    .returning();
 
   if (componentes?.length > 0) {
     await guardarComponentes(creado.id, componentes);
@@ -158,11 +166,11 @@ export async function crear(data) {
   };
 }
 
-export async function actualizar(id, data) {
+export async function actualizar(id, data, sucursalId) {
   const { componentes, ...productoData } = data;
 
   if (productoData.codbarra !== undefined) {
-    await validarCodBarraUnico(productoData.codbarra ?? null, id);
+    await validarCodBarraUnico(productoData.codbarra ?? null, sucursalId, id);
   }
 
   if (componentes !== undefined) {
@@ -172,7 +180,11 @@ export async function actualizar(id, data) {
     await guardarComponentes(id, componentes);
   }
 
-  const [actualizado] = await db.update(productos).set(productoData).where(eq(productos.id, id)).returning();
+  const where = sucursalId != null
+    ? and(eq(productos.id, id), eq(productos.sucursalId, sucursalId))
+    : eq(productos.id, id);
+
+  const [actualizado] = await db.update(productos).set(productoData).where(where).returning();
   if (!actualizado) return null;
 
   const componentesGuardados = await obtenerComponentes(id);
@@ -186,8 +198,12 @@ export async function actualizar(id, data) {
   };
 }
 
-export async function eliminar(id) {
-  const [borrado] = await db.delete(productos).where(eq(productos.id, id)).returning();
+export async function eliminar(id, sucursalId) {
+  const where = sucursalId != null
+    ? and(eq(productos.id, id), eq(productos.sucursalId, sucursalId))
+    : eq(productos.id, id);
+
+  const [borrado] = await db.delete(productos).where(where).returning();
   return !!borrado;
 }
 

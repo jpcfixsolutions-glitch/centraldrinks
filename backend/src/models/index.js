@@ -1,3 +1,4 @@
+export { sucursales } from './sucursales.model.js';
 export { usuarios } from './usuarios.model.js';
 export { categorias } from './categorias.model.js';
 export { metodosPago } from './metodosPago.model.js';
@@ -14,6 +15,7 @@ export { botellasBarra } from './botellasBarra.model.js';
 export { auditLogs } from './auditLogs.model.js';
 
 export {
+  sucursalesRelations,
   usuariosRelations,
   categoriasRelations,
   productosRelations,

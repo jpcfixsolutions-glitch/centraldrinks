@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
@@ -20,8 +20,9 @@ async function pagosPorVentas(ventaIds) {
   return db.select().from(ventaPagos).where(inArray(ventaPagos.ventaId, ventaIds));
 }
 
-export async function listar() {
-  const lista = await db.select().from(ventas).orderBy(desc(ventas.fecha));
+export async function listar(sucursalId) {
+  const where = sucursalId != null ? eq(ventas.sucursalId, sucursalId) : undefined;
+  const lista = await db.select().from(ventas).where(where).orderBy(desc(ventas.fecha));
   const ventaIds = lista.map((v) => v.id);
   const items = await itemsPorVentas(ventaIds);
   const pagos = await pagosPorVentas(ventaIds);
@@ -54,8 +55,8 @@ export async function obtener(id) {
   return { ...venta, items, pagos };
 }
 
-export async function crear(data, usuarioId) {
-  const sesionId = await idSesionAbierta();
+export async function crear(data, usuarioId, sucursalId) {
+  const sesionId = await idSesionAbierta(sucursalId);
   if (!sesionId) {
     const err = new Error('No hay caja abierta. Abrí la caja antes de registrar ventas.');
     err.status = 400;
@@ -77,6 +78,7 @@ export async function crear(data, usuarioId) {
       metodoPago: data.metodoPago,
       usuarioId: usuarioId ?? null,
       cierreCajaId: sesionId,
+      sucursalId: sucursalId ?? null,
     })
     .returning();
 

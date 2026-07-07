@@ -31,7 +31,11 @@ export async function crear(req, res) {
   }
 
   try {
-    const venta = await ventasService.crear(parsed.data, req.user?.sub);
+    const venta = await ventasService.crear(
+      parsed.data,
+      req.user?.sub,
+      req.user?.sucursalId ?? null
+    );
     res.status(201).json({ id: venta.id, codigo: venta.codigo, fecha: venta.fecha, cierreCajaId: venta.cierreCajaId });
   } catch (err) {
     if (err.status === 400) return res.status(400).json({ error: err.message });
@@ -39,8 +43,8 @@ export async function crear(req, res) {
   }
 }
 
-export async function listar(_req, res) {
-  res.json(await ventasService.listar());
+export async function listar(req, res) {
+  res.json(await ventasService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function obtener(req, res) {

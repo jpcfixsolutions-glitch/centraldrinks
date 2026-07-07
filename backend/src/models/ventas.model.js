@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 import { usuarios } from './usuarios.model.js';
 import { cierresCaja } from './cierresCaja.model.js';
+import { sucursales } from './sucursales.model.js';
 
 export const ventas = sqliteTable('ventas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -13,5 +14,6 @@ export const ventas = sqliteTable('ventas', {
   metodoPago: text('metodo_pago').notNull(),
   usuarioId: integer('usuario_id').references(() => usuarios.id, { onDelete: 'set null' }),
   cierreCajaId: integer('cierre_caja_id').references(() => cierresCaja.id, { onDelete: 'set null' }),
+  sucursalId: integer('sucursal_id').references(() => sucursales.id),
   fecha: text('fecha').notNull().default(sql`CURRENT_TIMESTAMP`),
 });

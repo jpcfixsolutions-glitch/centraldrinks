@@ -7,8 +7,8 @@ const logSchema = z.object({
   detalle: z.string().optional(),
 });
 
-export async function listar(_req, res) {
-  res.json(await auditLogsService.listar());
+export async function listar(req, res) {
+  res.json(await auditLogsService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function crear(req, res) {
@@ -17,6 +17,10 @@ export async function crear(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
 
-  const nuevo = await auditLogsService.crear(parsed.data, req.user?.sub);
+  const nuevo = await auditLogsService.crear(
+    parsed.data,
+    req.user?.sub,
+    req.user?.sucursalId ?? null
+  );
   res.status(201).json(nuevo);
 }

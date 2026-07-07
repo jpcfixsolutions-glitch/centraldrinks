@@ -1,6 +1,11 @@
 -- =====================================================================
 -- Club 22 - Schema SQL para Turso (libSQL / SQLite)
 -- =====================================================================
+--
+--   Para aplicar soporte de SUCURSALES a una base existente:
+--        npm run db:migrate-sucursales
+--
+-- =====================================================================
 -- FORMAS DE APLICARLO:
 --
 --   A) Desde Node (recomendado, usa tus credenciales de .env):
@@ -21,6 +26,15 @@
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
+-- SUCURSALES
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sucursales (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre  TEXT NOT NULL,
+  dominio TEXT NOT NULL UNIQUE
+);
+
+-- ---------------------------------------------------------------------
 -- USUARIOS
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -32,6 +46,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
                 CHECK (rol IN ('administrador', 'empleado')),
   activo        INTEGER NOT NULL DEFAULT 1
                 CHECK (activo IN (0, 1)),
+  sucursal_id   INTEGER REFERENCES sucursales(id),
   created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -68,10 +83,11 @@ CREATE TABLE IF NOT EXISTS productos (
   precio_mostrador REAL    NOT NULL DEFAULT 0,
   stock            INTEGER NOT NULL DEFAULT 0,
   stock_minimo     INTEGER NOT NULL DEFAULT 5,
-  codbarra         INTEGER UNIQUE,
+  codbarra         INTEGER,
   imagen           TEXT,
   activo           INTEGER NOT NULL DEFAULT 1
                    CHECK (activo IN (0, 1)),
+  sucursal_id      INTEGER REFERENCES sucursales(id),
   created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -93,13 +109,15 @@ CREATE INDEX IF NOT EXISTS idx_promocion_items_promocion ON promocion_items(prom
 -- MESAS
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mesas (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  numero     INTEGER NOT NULL UNIQUE,
-  estado     TEXT    NOT NULL DEFAULT 'libre'
-             CHECK (estado IN ('libre', 'ocupada', 'cerrando')),
-  activa     INTEGER NOT NULL DEFAULT 1
-             CHECK (activa IN (0, 1)),
-  created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero      INTEGER NOT NULL,
+  estado      TEXT    NOT NULL DEFAULT 'libre'
+              CHECK (estado IN ('libre', 'ocupada', 'cerrando')),
+  activa      INTEGER NOT NULL DEFAULT 1
+              CHECK (activa IN (0, 1)),
+  sucursal_id INTEGER REFERENCES sucursales(id),
+  created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (numero, sucursal_id)
 );
 
 -- ---------------------------------------------------------------------
@@ -118,7 +136,8 @@ CREATE TABLE IF NOT EXISTS cierres_caja (
   ingreso_efectivo REAL    NOT NULL DEFAULT 0,
   ingreso_virtual  REAL    NOT NULL DEFAULT 0,
   egreso_efectivo  REAL    NOT NULL DEFAULT 0,
-  fecha_cierre     TEXT
+  fecha_cierre     TEXT,
+  sucursal_id      INTEGER REFERENCES sucursales(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cierres_usuario ON cierres_caja(usuario_id);
@@ -138,6 +157,7 @@ CREATE TABLE IF NOT EXISTS ventas (
   metodo_pago     TEXT    NOT NULL,
   usuario_id      INTEGER REFERENCES usuarios(id)     ON DELETE SET NULL,
   cierre_caja_id  INTEGER REFERENCES cierres_caja(id) ON DELETE SET NULL,
+  sucursal_id     INTEGER REFERENCES sucursales(id),
   fecha           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -184,6 +204,7 @@ CREATE TABLE IF NOT EXISTS gastos (
   metodo_pago TEXT    NOT NULL
               CHECK (metodo_pago IN ('Efectivo', 'Virtual')),
   usuario_id  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  sucursal_id INTEGER REFERENCES sucursales(id),
   fecha       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -193,9 +214,10 @@ CREATE INDEX IF NOT EXISTS idx_gastos_fecha ON gastos(fecha);
 -- GASTOS FIJOS
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS gastos_fijos (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  nombre TEXT    NOT NULL,
-  monto  REAL    NOT NULL
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre      TEXT    NOT NULL,
+  monto       REAL    NOT NULL,
+  sucursal_id INTEGER REFERENCES sucursales(id)
 );
 
 -- ---------------------------------------------------------------------
@@ -205,6 +227,7 @@ CREATE TABLE IF NOT EXISTS botellas_barra (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   producto_id     INTEGER REFERENCES productos(id) ON DELETE CASCADE,
   nombre_producto TEXT    NOT NULL,
+  sucursal_id     INTEGER REFERENCES sucursales(id),
   fecha_apertura  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -217,9 +240,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   tipo       TEXT    NOT NULL,
   mensaje    TEXT    NOT NULL,
-  detalle    TEXT,
-  usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-  fecha      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  detalle     TEXT,
+  usuario_id  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+  sucursal_id INTEGER REFERENCES sucursales(id),
+  fecha       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_fecha ON audit_logs(fecha);

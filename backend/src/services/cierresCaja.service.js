@@ -1,4 +1,4 @@
-import { desc, eq, inArray, isNull, gte } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, gte } from 'drizzle-orm';
 import { db } from './db.js';
 import { cierresCaja } from '../models/cierresCaja.model.js';
 import { ventas } from '../models/ventas.model.js';
@@ -18,17 +18,22 @@ async function pagosMapPorVentas(ventaIds) {
   return map;
 }
 
-async function gastosDesde(fechaApertura) {
+async function gastosDesde(fechaApertura, sucursalId) {
   if (!fechaApertura) return [];
-  return db.select().from(gastos).where(gte(gastos.fecha, fechaApertura));
+  const condiciones = [gte(gastos.fecha, fechaApertura)];
+  if (sucursalId != null) condiciones.push(eq(gastos.sucursalId, sucursalId));
+  return db.select().from(gastos).where(and(...condiciones));
 }
 
-export async function obtenerAbierta() {
-  return db.query.cierresCaja.findFirst({ where: eq(cierresCaja.abierta, true) });
+export async function obtenerAbierta(sucursalId) {
+  const condiciones = [eq(cierresCaja.abierta, true)];
+  if (sucursalId != null) condiciones.push(eq(cierresCaja.sucursalId, sucursalId));
+  return db.query.cierresCaja.findFirst({ where: and(...condiciones) });
 }
 
 export async function abrir(usuario, efectivoInicial) {
-  const existente = await obtenerAbierta();
+  const sucursalId = usuario.sucursalId ?? null;
+  const existente = await obtenerAbierta(sucursalId);
   if (existente) {
     const err = new Error('Ya hay una caja abierta');
     err.status = 409;
@@ -42,20 +47,21 @@ export async function abrir(usuario, efectivoInicial) {
       empleado: usuario.username,
       efectivoInicial,
       abierta: true,
+      sucursalId,
     })
     .returning();
 
   return sesion;
 }
 
-export async function obtenerResumenActual() {
-  const sesion = await obtenerAbierta();
+export async function obtenerResumenActual(sucursalId) {
+  const sesion = await obtenerAbierta(sucursalId);
   if (!sesion) return null;
 
   const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
   const ventaIds = ventasSesion.map((v) => v.id);
   const pagosMap = await pagosMapPorVentas(ventaIds);
-  const gastosSesion = await gastosDesde(sesion.fechaApertura);
+  const gastosSesion = await gastosDesde(sesion.fechaApertura, sucursalId);
 
   const resumen = calcularResumenDesdeVentas({
     efectivoInicial: sesion.efectivoInicial,
@@ -68,11 +74,14 @@ export async function obtenerResumenActual() {
   return { sesion, resumen };
 }
 
-export async function listar() {
+export async function listar(sucursalId) {
+  const condiciones = [eq(cierresCaja.abierta, false)];
+  if (sucursalId != null) condiciones.push(eq(cierresCaja.sucursalId, sucursalId));
+
   return db
     .select()
     .from(cierresCaja)
-    .where(eq(cierresCaja.abierta, false))
+    .where(and(...condiciones))
     .orderBy(desc(cierresCaja.fechaCierre));
 }
 
@@ -107,18 +116,19 @@ export async function obtener(id) {
 }
 
 export async function cerrar(usuario) {
-  const sesion = await obtenerAbierta();
+  const sucursalId = usuario.sucursalId ?? null;
+  const sesion = await obtenerAbierta(sucursalId);
   if (!sesion) return null;
 
   await db
     .update(ventas)
     .set({ cierreCajaId: sesion.id })
-    .where(isNull(ventas.cierreCajaId));
+    .where(and(isNull(ventas.cierreCajaId), sucursalId != null ? eq(ventas.sucursalId, sucursalId) : undefined));
 
   const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
   const ventaIds = ventasSesion.map((v) => v.id);
   const pagosMap = await pagosMapPorVentas(ventaIds);
-  const gastosSesion = await gastosDesde(sesion.fechaApertura);
+  const gastosSesion = await gastosDesde(sesion.fechaApertura, sucursalId);
 
   const resumen = calcularResumenDesdeVentas({
     efectivoInicial: sesion.efectivoInicial,
@@ -151,7 +161,7 @@ export async function cerrar(usuario) {
   };
 }
 
-export async function idSesionAbierta() {
-  const sesion = await obtenerAbierta();
+export async function idSesionAbierta(sucursalId) {
+  const sesion = await obtenerAbierta(sucursalId);
   return sesion?.id ?? null;
 }

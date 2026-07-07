@@ -5,8 +5,9 @@ const abrirSchema = z.object({
   efectivoInicial: z.number().nonnegative(),
 });
 
-export async function actual(_req, res) {
-  const data = await cierresCajaService.obtenerResumenActual();
+export async function actual(req, res) {
+  const sucursalId = req.user?.sucursalId ?? null;
+  const data = await cierresCajaService.obtenerResumenActual(sucursalId);
   if (!data) {
     return res.json({ abierta: false, sesion: null, resumen: null });
   }
@@ -21,7 +22,8 @@ export async function abrir(req, res) {
 
   try {
     const sesion = await cierresCajaService.abrir(req.user, parsed.data.efectivoInicial);
-    const resumen = await cierresCajaService.obtenerResumenActual();
+    const sucursalId = req.user?.sucursalId ?? null;
+    const resumen = await cierresCajaService.obtenerResumenActual(sucursalId);
     res.status(201).json({ abierta: true, sesion, resumen: resumen?.resumen });
   } catch (err) {
     if (err.status === 409) return res.status(409).json({ error: err.message });
@@ -29,8 +31,8 @@ export async function abrir(req, res) {
   }
 }
 
-export async function listar(_req, res) {
-  res.json(await cierresCajaService.listar());
+export async function listar(req, res) {
+  res.json(await cierresCajaService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function obtener(req, res) {

@@ -8,8 +8,8 @@ const gastoSchema = z.object({
   metodoPago: z.enum(['Efectivo', 'Virtual']).optional(),
 });
 
-export async function listar(_req, res) {
-  res.json(await gastosService.listar());
+export async function listar(req, res) {
+  res.json(await gastosService.listar(req.user?.sucursalId ?? null));
 }
 
 export async function crear(req, res) {
@@ -25,7 +25,8 @@ export async function crear(req, res) {
 
   const creado = await gastosService.crear(
     { asunto: parsed.data.asunto, monto: parsed.data.monto, metodoPago: metodo },
-    req.user?.sub
+    req.user?.sub,
+    req.user?.sucursalId ?? null
   );
   res.status(201).json(creado);
 }
@@ -34,7 +35,7 @@ export async function eliminar(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-  const borrado = await gastosService.eliminar(id);
+  const borrado = await gastosService.eliminar(id, req.user?.sucursalId ?? null);
   if (!borrado) return res.status(404).json({ error: 'Gasto no encontrado' });
   res.json({ ok: true });
 }

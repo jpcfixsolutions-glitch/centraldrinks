@@ -59,7 +59,7 @@ export function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
-                placeholder="Ingresa tu usuario"
+                placeholder="usuario@club22yofre"
                 autoComplete="username"
                 disabled={cargando}
               />

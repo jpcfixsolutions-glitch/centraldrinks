@@ -25,14 +25,28 @@ async function gastosDesde(fechaApertura, sucursalId) {
   return db.select().from(gastos).where(and(...condiciones));
 }
 
+function filtroPorSucursal(sucursalId) {
+  return sucursalId != null
+    ? eq(cierresCaja.sucursalId, sucursalId)
+    : isNull(cierresCaja.sucursalId);
+}
+
 export async function obtenerAbierta(sucursalId) {
-  const condiciones = [eq(cierresCaja.abierta, true)];
-  if (sucursalId != null) condiciones.push(eq(cierresCaja.sucursalId, sucursalId));
-  return db.query.cierresCaja.findFirst({ where: and(...condiciones) });
+  // Usa select con ORDER BY para resultado determinístico:
+  // si hubiera varias abiertas (inconsistencia) siempre devuelve la de mayor ID.
+  const rows = await db
+    .select()
+    .from(cierresCaja)
+    .where(and(eq(cierresCaja.abierta, true), filtroPorSucursal(sucursalId)))
+    .orderBy(desc(cierresCaja.id))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function abrir(usuario, efectivoInicial) {
   const sucursalId = usuario.sucursalId ?? null;
+
+  // Verificar si ya existe una sesión abierta para esta sucursal
   const existente = await obtenerAbierta(sucursalId);
   if (existente) {
     const err = new Error('Ya hay una caja abierta');
@@ -120,10 +134,15 @@ export async function cerrar(usuario) {
   const sesion = await obtenerAbierta(sucursalId);
   if (!sesion) return null;
 
+  // Vincular ventas sin caja al cierre actual
+  const ventasSinCajaCondicion = sucursalId != null
+    ? and(isNull(ventas.cierreCajaId), eq(ventas.sucursalId, sucursalId))
+    : and(isNull(ventas.cierreCajaId), isNull(ventas.sucursalId));
+
   await db
     .update(ventas)
     .set({ cierreCajaId: sesion.id })
-    .where(and(isNull(ventas.cierreCajaId), sucursalId != null ? eq(ventas.sucursalId, sucursalId) : undefined));
+    .where(ventasSinCajaCondicion);
 
   const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
   const ventaIds = ventasSesion.map((v) => v.id);
@@ -138,11 +157,14 @@ export async function cerrar(usuario) {
     fechaApertura: sesion.fechaApertura,
   });
 
+  const ahora = new Date().toISOString();
+
+  // Cerrar la sesión principal con el resumen calculado
   const [cierre] = await db
     .update(cierresCaja)
     .set({
       abierta: false,
-      fechaCierre: new Date().toISOString(),
+      fechaCierre: ahora,
       cantidadVentas: resumen.cantidadVentas,
       ingresoTotal: resumen.ingresoTotal,
       ingresoEfectivo: resumen.ingresoEfectivo,
@@ -154,8 +176,19 @@ export async function cerrar(usuario) {
     .where(eq(cierresCaja.id, sesion.id))
     .returning();
 
+  // Sanear cualquier otra sesión abierta huérfana de la misma sucursal
+  await db
+    .update(cierresCaja)
+    .set({ abierta: false, fechaCierre: ahora })
+    .where(
+      and(
+        eq(cierresCaja.abierta, true),
+        filtroPorSucursal(sucursalId),
+      )
+    );
+
   return {
-    ...cierre,
+    ...(cierre ?? { id: sesion.id }),
     efectivoEsperado: resumen.efectivoEsperado,
     resumen,
   };

@@ -2,23 +2,64 @@ import { eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { suscripciones } from '../models/suscripciones.model.js';
 
+const SINGLETON_ID = 1;
+
+// ── Helpers de fecha ────────────────────────────────────────────────────────
+
 /**
- * Calcula el estado de suscripción para una sucursal dado su diaVencimiento.
- * Retorna { diaVencimiento, diasRestantes, estado: 'activa' | 'por_vencer' | 'expirada' }
+ * Dado un día 1-31, calcula la próxima ocurrencia de ese día:
+ * - Si hoy es ANTES de ese día en el mes actual → usa este mes.
+ * - Si hoy es ESE día O ya pasó → usa el mes siguiente.
+ * Retorna una fecha ISO al final del día (23:59:59.999).
  */
-export function calcularEstado(diaVencimiento) {
+export function calcularProximaFecha(dia) {
   const hoy = new Date();
   const anio = hoy.getFullYear();
   const mes  = hoy.getMonth(); // 0-indexed
+  const diaHoy = hoy.getDate();
 
-  // Construir la fecha de vencimiento de este mes (clampeado al último día del mes)
-  const ultimoDiaMes = new Date(anio, mes + 1, 0).getDate();
-  const dia = Math.min(diaVencimiento, ultimoDiaMes);
-  const vencimiento = new Date(anio, mes, dia, 23, 59, 59, 999);
+  const ultimoDiaMesActual = new Date(anio, mes + 1, 0).getDate();
+  const diaEfectivoActual  = Math.min(dia, ultimoDiaMesActual);
 
-  // Si ya pasó este mes, el próximo vencimiento es el mes que viene
-  const hoyMs = hoy.getTime();
-  const diasRestantes = Math.ceil((vencimiento.getTime() - hoyMs) / (1000 * 60 * 60 * 24));
+  if (diaHoy < diaEfectivoActual) {
+    // Este mes todavía no llegó
+    return new Date(anio, mes, diaEfectivoActual, 23, 59, 59, 999).toISOString();
+  }
+
+  // Ya pasó o es hoy → próximo mes
+  const mesProx = mes === 11 ? 0 : mes + 1;
+  const anioProx = mes === 11 ? anio + 1 : anio;
+  const ultimoDiaMesProx = new Date(anioProx, mesProx + 1, 0).getDate();
+  const diaEfectivoProx  = Math.min(dia, ultimoDiaMesProx);
+  return new Date(anioProx, mesProx, diaEfectivoProx, 23, 59, 59, 999).toISOString();
+}
+
+/**
+ * Avanza la fechaVencimiento actual exactamente un mes
+ * (preservando el diaVencimiento, ajustando si el mes no tiene ese día).
+ */
+function avanzarUnMes(fechaActual, dia) {
+  const f = new Date(fechaActual);
+  const mesProx  = f.getMonth() === 11 ? 0 : f.getMonth() + 1;
+  const anioProx = f.getMonth() === 11 ? f.getFullYear() + 1 : f.getFullYear();
+  const ultimoDia = new Date(anioProx, mesProx + 1, 0).getDate();
+  const diaEfectivo = Math.min(dia, ultimoDia);
+  return new Date(anioProx, mesProx, diaEfectivo, 23, 59, 59, 999).toISOString();
+}
+
+// ── Estado ──────────────────────────────────────────────────────────────────
+
+/**
+ * Calcula el estado a partir de la fechaVencimiento almacenada.
+ * - 'expirada'   → fechaVencimiento ya pasó (today > fechaVencimiento)
+ * - 'por_vencer' → quedan 0-5 días
+ * - 'activa'     → más de 5 días
+ */
+export function calcularEstado(diaVencimiento, fechaVencimiento) {
+  const hoy    = new Date();
+  const vence  = new Date(fechaVencimiento);
+  const diffMs = vence.getTime() - hoy.getTime();
+  const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
   let estado;
   if (diasRestantes < 0) {
@@ -32,32 +73,54 @@ export function calcularEstado(diaVencimiento) {
   return {
     diaVencimiento,
     diasRestantes: Math.max(diasRestantes, 0),
-    fechaVencimiento: vencimiento.toISOString(),
+    fechaVencimiento,
     estado,
   };
 }
 
-export async function obtenerPorSucursal(sucursalId) {
+// ── CRUD ────────────────────────────────────────────────────────────────────
+
+export async function obtener() {
   const row = await db.query.suscripciones.findFirst({
-    where: eq(suscripciones.sucursalId, sucursalId),
+    where: eq(suscripciones.id, SINGLETON_ID),
   });
   if (!row) return null;
-  return { ...row, ...calcularEstado(row.diaVencimiento) };
+  return calcularEstado(row.diaVencimiento, row.fechaVencimiento);
 }
 
-export async function obtenerTodas() {
-  const rows = await db.select().from(suscripciones);
-  return rows.map((r) => ({ ...r, ...calcularEstado(r.diaVencimiento) }));
-}
-
-export async function actualizar(sucursalId, diaVencimiento) {
+/**
+ * Guarda el día de vencimiento y calcula la próxima fecha automáticamente.
+ * Si el día ya pasó este mes, apunta al mes siguiente (no expira de inmediato).
+ */
+export async function actualizar(dia) {
+  const fechaVencimiento = calcularProximaFecha(dia);
   const ahora = new Date().toISOString();
   const [updated] = await db
     .update(suscripciones)
-    .set({ diaVencimiento, updatedAt: ahora })
-    .where(eq(suscripciones.sucursalId, sucursalId))
+    .set({ diaVencimiento: dia, fechaVencimiento, updatedAt: ahora })
+    .where(eq(suscripciones.id, SINGLETON_ID))
     .returning();
-
   if (!updated) return null;
-  return { ...updated, ...calcularEstado(updated.diaVencimiento) };
+  return calcularEstado(updated.diaVencimiento, updated.fechaVencimiento);
+}
+
+/**
+ * Reactivación: avanza la fechaVencimiento un mes hacia adelante.
+ * Útil cuando el cliente paga y el creador desbloquea el sistema.
+ */
+export async function reactivar() {
+  const row = await db.query.suscripciones.findFirst({
+    where: eq(suscripciones.id, SINGLETON_ID),
+  });
+  if (!row) return null;
+
+  const nuevaFecha = avanzarUnMes(row.fechaVencimiento, row.diaVencimiento);
+  const ahora = new Date().toISOString();
+  const [updated] = await db
+    .update(suscripciones)
+    .set({ fechaVencimiento: nuevaFecha, updatedAt: ahora })
+    .where(eq(suscripciones.id, SINGLETON_ID))
+    .returning();
+  if (!updated) return null;
+  return calcularEstado(updated.diaVencimiento, updated.fechaVencimiento);
 }

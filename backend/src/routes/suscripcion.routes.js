@@ -7,11 +7,11 @@ const router = Router();
 
 router.use(requireAuth);
 
-// Solo el creador puede listar y actualizar
-router.get('/', requireRole('creador'), asyncHandler(ctrl.listar));
-router.put('/', requireRole('creador'), asyncHandler(ctrl.actualizar));
+// Cualquier usuario autenticado puede consultar el estado
+router.get('/', asyncHandler(ctrl.obtener));
 
-// Cualquier usuario autenticado puede consultar su propia suscripción
-router.get('/:sucursalId', asyncHandler(ctrl.obtener));
+// Solo el creador puede modificar
+router.put('/', requireRole('creador'), asyncHandler(ctrl.actualizar));
+router.post('/reactivar', requireRole('creador'), asyncHandler(ctrl.reactivar));
 
 export default router;

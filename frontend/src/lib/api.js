@@ -146,8 +146,9 @@ export const auditLogsApi = {
 };
 
 export const suscripcionApi = {
-  listar: () => apiFetch('/suscripcion'),
-  obtener: (sucursalId) => apiFetch(`/suscripcion/${sucursalId}`),
-  actualizar: (sucursalId, diaVencimiento) =>
-    apiFetch('/suscripcion', { method: 'PUT', body: { sucursalId, diaVencimiento } }),
+  obtener: () => apiFetch('/suscripcion'),
+  actualizar: (diaVencimiento) =>
+    apiFetch('/suscripcion', { method: 'PUT', body: { diaVencimiento } }),
+  reactivar: () =>
+    apiFetch('/suscripcion/reactivar', { method: 'POST' }),
 };

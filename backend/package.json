@@ -15,6 +15,7 @@
     "db:fix-stock": "node src/db/fix-stock-negativo.js",
     "db:reset-cajas": "node src/db/reset-cajas.js",
     "db:reset-historial": "node src/db/reset-historial.js",
+    "db:migrate-suscripcion": "node src/db/migrate-suscripcion.js",
     "db:exportar-ventas": "node src/db/exportar-ventas.js",
     "db:exportar-ultima-caja": "node src/db/exportar-ultima-caja.js",
     "db:reset-stats": "node src/db/reset-stats.js"

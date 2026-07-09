@@ -7,7 +7,7 @@ export const usuarios = sqliteTable('usuarios', {
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   nombre: text('nombre').notNull(),
-  rol: text('rol', { enum: ['administrador', 'empleado'] }).notNull().default('empleado'),
+  rol: text('rol', { enum: ['administrador', 'empleado', 'creador'] }).notNull().default('empleado'),
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
   sucursalId: integer('sucursal_id').references(() => sucursales.id),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),

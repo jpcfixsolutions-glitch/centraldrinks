@@ -2,6 +2,8 @@ import { eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { sucursales } from '../models/sucursales.model.js';
 import * as usuariosService from './usuarios.service.js';
+import { calcularEstado } from './suscripcion.service.js';
+import { suscripciones } from '../models/suscripciones.model.js';
 import { verifyPassword } from './hash.js';
 import { signToken } from './jwt.js';
 
@@ -10,7 +12,16 @@ async function obtenerSucursal(sucursalId) {
   return db.query.sucursales.findFirst({ where: eq(sucursales.id, sucursalId) });
 }
 
-function buildUserPayload(usuario, sucursal) {
+async function obtenerEstadoSuscripcion(sucursalId) {
+  if (!sucursalId) return null;
+  const row = await db.query.suscripciones.findFirst({
+    where: eq(suscripciones.sucursalId, sucursalId),
+  });
+  if (!row) return null;
+  return calcularEstado(row.diaVencimiento);
+}
+
+function buildUserPayload(usuario, sucursal, estadoSuscripcion) {
   return {
     id: usuario.id,
     username: usuario.username,
@@ -18,6 +29,7 @@ function buildUserPayload(usuario, sucursal) {
     rol: usuario.rol,
     sucursalId: usuario.sucursalId ?? null,
     sucursalNombre: sucursal?.nombre ?? null,
+    suscripcion: estadoSuscripcion ?? null,
   };
 }
 
@@ -32,6 +44,7 @@ export async function login(username, password) {
   if (!ok) return null;
 
   const sucursal = await obtenerSucursal(usuario.sucursalId);
+  const estadoSuscripcion = await obtenerEstadoSuscripcion(usuario.sucursalId);
 
   const token = signToken({
     sub: usuario.id,
@@ -43,7 +56,7 @@ export async function login(username, password) {
 
   return {
     token,
-    user: buildUserPayload(usuario, sucursal),
+    user: buildUserPayload(usuario, sucursal, estadoSuscripcion),
   };
 }
 
@@ -51,5 +64,6 @@ export async function me(userId) {
   const usuario = await usuariosService.buscarPorId(userId);
   if (!usuario) return null;
   const sucursal = await obtenerSucursal(usuario.sucursalId);
-  return buildUserPayload(usuario, sucursal);
+  const estadoSuscripcion = await obtenerEstadoSuscripcion(usuario.sucursalId);
+  return buildUserPayload(usuario, sucursal, estadoSuscripcion);
 }

@@ -3,6 +3,9 @@ import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, Lo
 import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
 import { CerrarCajaModal } from './components/CerrarCajaModal.jsx';
 import { AppNav } from './components/AppNav.jsx';
+import { SuscripcionPanel } from './components/SuscripcionPanel.jsx';
+import { ModalSuscripcionExpirada } from './components/ModalSuscripcionExpirada.jsx';
+import { BannerVencimiento } from './components/BannerVencimiento.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
 import { VentaMesa } from './components/VentaMesa.jsx';
@@ -186,6 +189,16 @@ export default function App() {
   if (!usuarioActual) {
     return <Login />;
   }
+
+  // ── Rol creador: panel exclusivo, sin acceso al resto de la app ─────────
+  if (usuarioActual.rol === 'creador') {
+    return <SuscripcionPanel onLogout={handleLogout} />;
+  }
+
+  // ── Estado de suscripción ────────────────────────────────────────────────
+  const suscripcion = usuarioActual.suscripcion ?? null;
+  const suscripcionExpirada = suscripcion?.estado === 'expirada';
+  const suscripcionPorVencer = suscripcion?.estado === 'por_vencer';
 
   if (store.loading) {
     return (
@@ -774,6 +787,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {suscripcionExpirada && <ModalSuscripcionExpirada onLogout={handleLogout} />}
+      {suscripcionPorVencer && (
+        <BannerVencimiento
+          diasRestantes={suscripcion.diasRestantes}
+          fechaVencimiento={suscripcion.fechaVencimiento}
+        />
+      )}
       <Sidebar active={vistaActual} />
       <div className="min-h-screen flex flex-col md:ml-16 pb-20 md:pb-0">{contenido}</div>
       <AbrirCajaModal

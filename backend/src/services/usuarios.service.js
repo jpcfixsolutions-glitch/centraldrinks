@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { db } from './db.js';
 import { usuarios } from '../models/usuarios.model.js';
 import { hashPassword } from './hash.js';
@@ -16,7 +16,11 @@ export function toPublicUser(u) {
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(usuarios.sucursalId, sucursalId) : undefined;
+  // El rol 'creador' nunca aparece en el panel de administración
+  const filtroSucursal = sucursalId != null ? eq(usuarios.sucursalId, sucursalId) : undefined;
+  const where = filtroSucursal
+    ? and(filtroSucursal, ne(usuarios.rol, 'creador'))
+    : ne(usuarios.rol, 'creador');
   const todos = await db.select().from(usuarios).where(where);
   return todos.map(toPublicUser);
 }

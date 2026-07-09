@@ -13,6 +13,7 @@ export { gastos } from './gastos.model.js';
 export { gastosFijos } from './gastosFijos.model.js';
 export { botellasBarra } from './botellasBarra.model.js';
 export { auditLogs } from './auditLogs.model.js';
+export { suscripciones } from './suscripciones.model.js';
 
 export {
   sucursalesRelations,

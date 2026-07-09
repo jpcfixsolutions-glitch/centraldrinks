@@ -144,3 +144,10 @@ export const auditLogsApi = {
   listar: () => apiFetch('/audit-logs'),
   crear: (data) => apiFetch('/audit-logs', { method: 'POST', body: data }),
 };
+
+export const suscripcionApi = {
+  listar: () => apiFetch('/suscripcion'),
+  obtener: (sucursalId) => apiFetch(`/suscripcion/${sucursalId}`),
+  actualizar: (sucursalId, diaVencimiento) =>
+    apiFetch('/suscripcion', { method: 'PUT', body: { sucursalId, diaVencimiento } }),
+};

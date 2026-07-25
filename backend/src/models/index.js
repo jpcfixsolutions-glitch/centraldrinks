@@ -5,6 +5,7 @@ export { metodosPago } from './metodosPago.model.js';
 export { productos } from './productos.model.js';
 export { promocionItems } from './promocionItems.model.js';
 export { mesas } from './mesas.model.js';
+export { mesaCuentas } from './mesaCuentas.model.js';
 export { cierresCaja } from './cierresCaja.model.js';
 export { ventas } from './ventas.model.js';
 export { ventaItems } from './ventaItems.model.js';

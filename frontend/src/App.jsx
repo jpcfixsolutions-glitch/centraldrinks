@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Home, ShoppingCart, Package, BarChart3, Receipt, Utensils, Settings, LogOut, Wine, ArrowDown, Clock, List, Activity, ArrowUp, ShoppingBag, Lock, Plus, Archive, AlertTriangle, User, History, Check, Search, X, Wallet, CreditCard } from 'lucide-react';
 import { AbrirCajaModal } from './components/AbrirCajaModal.jsx';
 import { CerrarCajaModal } from './components/CerrarCajaModal.jsx';
@@ -16,8 +16,17 @@ import { Stats } from './components/Stats.jsx';
 import { Login } from './components/Login.jsx';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useDataStore } from './hooks/useDataStore.jsx';
+import { mesaCuentasApi } from './lib/api.js';
 import { fechaLocalClave, formatearFechaCorta, formatearHora, parseFechaDB } from './lib/fechas.js';
-import { cargarCuentasMesas, guardarCuentasMesas } from './lib/mesaCuentasStorage.js';
+import {
+  cargarCuentasMesas,
+  cuentasApiAMaps,
+  guardarCuentasMesas,
+} from './lib/mesaCuentasStorage.js';
+
+function mapsDesdeCuentas(cuentas) {
+  return cuentasApiAMaps(cuentas);
+}
 
 export default function App() {
   const { user: usuarioActual, loading: authLoading, logout } = useAuth();
@@ -28,13 +37,45 @@ export default function App() {
   const [cuentasMesasListas, setCuentasMesasListas] = useState(false);
   const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
   const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
+  const syncingRef = useRef(false);
+  const mesaSeleccionadaRef = useRef(null);
 
   const store = useDataStore({ enabled: !!usuarioActual });
   const cajaAbierta = store.cajaActual?.abierta ?? false;
   const resumenCaja = store.cajaActual?.resumen;
   const sucursalId = usuarioActual?.sucursalId ?? null;
 
-  // Restaurar cuentas abiertas al iniciar sesión (por sucursal)
+  useEffect(() => {
+    mesaSeleccionadaRef.current = mesaSeleccionada;
+  }, [mesaSeleccionada]);
+
+  const aplicarCuentasRemotas = (cuentas, { preservarMesaAbierta = false } = {}) => {
+    const { cargaMesas: carga, nombresMesas: nombres } = mapsDesdeCuentas(cuentas);
+    const mesaAbierta = mesaSeleccionadaRef.current;
+
+    if (preservarMesaAbierta && mesaAbierta != null) {
+      setCargaMesas((prev) => {
+        const merge = { ...carga };
+        if (prev[mesaAbierta] || prev[String(mesaAbierta)]) {
+          merge[mesaAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
+        }
+        return merge;
+      });
+      setNombresMesas((prev) => {
+        const merge = { ...nombres };
+        if (prev[mesaAbierta] != null || prev[String(mesaAbierta)] != null) {
+          merge[mesaAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
+        }
+        return merge;
+      });
+      return;
+    }
+
+    setCargaMesas(carga);
+    setNombresMesas(nombres);
+  };
+
+  // Cargar cuentas desde backend al iniciar sesión (+ migrar localStorage si hace falta)
   useEffect(() => {
     if (!usuarioActual) {
       setCargaMesas({});
@@ -43,55 +84,120 @@ export default function App() {
       return;
     }
 
-    const { cargaMesas: carga, nombresMesas: nombres } = cargarCuentasMesas(
-      usuarioActual.sucursalId ?? null
-    );
-    setCargaMesas(carga);
-    setNombresMesas(nombres);
-    setCuentasMesasListas(true);
-  }, [usuarioActual?.id, usuarioActual?.sucursalId]);
+    let cancelado = false;
 
-  // Persistir cuentas abiertas (sobrevive a logout en este terminal)
-  useEffect(() => {
-    if (!usuarioActual || !cuentasMesasListas) return;
-    guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
-  }, [usuarioActual, cuentasMesasListas, sucursalId, cargaMesas, nombresMesas]);
+    (async () => {
+      try {
+        const cuentas = await mesaCuentasApi.listar();
+        if (cancelado) return;
 
-  // Sincronizar estado ocupada/libre en backend según cuentas locales
-  useEffect(() => {
-    if (!usuarioActual || !cuentasMesasListas || store.mesas.length === 0) return;
-
-    const mesasSnapshot = store.mesas;
-    const cargaSnapshot = cargaMesas;
-
-    const timer = setTimeout(() => {
-      (async () => {
-        for (const mesa of mesasSnapshot) {
-          const items = cargaSnapshot[mesa.numero] ?? cargaSnapshot[String(mesa.numero)];
-          const deberiaEstarOcupada = Array.isArray(items) && items.length > 0;
-          const estadoDeseado = deberiaEstarOcupada ? 'ocupada' : 'libre';
-          if (mesa.estado === estadoDeseado) continue;
-          try {
-            await store.actualizarMesa(mesa.id, { estado: estadoDeseado });
-          } catch {
-            // no bloquear la UI si falla el sync
+        if (cuentas.length > 0) {
+          aplicarCuentasRemotas(cuentas);
+        } else {
+          // Migración one-shot: subir cuentas locales al backend
+          const local = cargarCuentasMesas(usuarioActual.sucursalId ?? null);
+          const numeros = Object.keys(local.cargaMesas);
+          if (numeros.length > 0) {
+            await Promise.all(
+              numeros.map((n) => {
+                const items = local.cargaMesas[n];
+                if (!items?.length) return null;
+                return mesaCuentasApi.upsert(Number(n), {
+                  items,
+                  nombreCliente: local.nombresMesas[n] || '',
+                });
+              })
+            );
+            if (cancelado) return;
+            setCargaMesas(local.cargaMesas);
+            setNombresMesas(local.nombresMesas);
+          } else {
+            setCargaMesas({});
+            setNombresMesas({});
           }
         }
+      } catch {
+        // Fallback local si el API falla
+        const local = cargarCuentasMesas(usuarioActual.sucursalId ?? null);
+        if (!cancelado) {
+          setCargaMesas(local.cargaMesas);
+          setNombresMesas(local.nombresMesas);
+        }
+      } finally {
+        if (!cancelado) setCuentasMesasListas(true);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [usuarioActual?.id, usuarioActual?.sucursalId]);
+
+  // Caché local + push al backend solo de mesas tocadas localmente (debounced)
+  useEffect(() => {
+    if (!usuarioActual || !cuentasMesasListas) return;
+
+    guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
+
+    const timer = setTimeout(() => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+
+      (async () => {
+        try {
+          for (const [numeroRaw, items] of Object.entries(cargaMesas)) {
+            const numero = Number(numeroRaw);
+            if (!Number.isFinite(numero)) continue;
+            if (!Array.isArray(items) || items.length === 0) continue;
+
+            const nombreCliente =
+              nombresMesas[numero] ?? nombresMesas[String(numero)] ?? '';
+            await mesaCuentasApi.upsert(numero, { items, nombreCliente });
+          }
+        } catch {
+          // no bloquear UI
+        } finally {
+          syncingRef.current = false;
+        }
       })();
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [usuarioActual, cuentasMesasListas, cargaMesas, store.mesas, store.actualizarMesa]);
+  }, [usuarioActual, cuentasMesasListas, sucursalId, cargaMesas, nombresMesas]);
+
+  // Polling entre terminales (grilla de mesas o cada cierto tiempo en general)
+  useEffect(() => {
+    if (!usuarioActual || !cuentasMesasListas) return;
+
+    const pull = async () => {
+      if (syncingRef.current) return;
+      try {
+        const cuentas = await mesaCuentasApi.listar();
+        aplicarCuentasRemotas(cuentas, { preservarMesaAbierta: true });
+        if (mesaSeleccionadaRef.current == null) {
+          const maps = mapsDesdeCuentas(cuentas);
+          guardarCuentasMesas(sucursalId, maps.cargaMesas, maps.nombresMesas);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // En vista mesas refresca más seguido; en el resto cada 15s alcanza
+    const intervalo = vistaActual === 'mesas' ? 4000 : 15000;
+    const id = setInterval(pull, intervalo);
+    // Pull inmediato al entrar a mesas
+    if (vistaActual === 'mesas') pull();
+    return () => clearInterval(id);
+  }, [usuarioActual, cuentasMesasListas, vistaActual, sucursalId]);
 
   const handleLogout = () => {
-    // Guardar antes de salir para no perder mesas ocupadas
     if (cuentasMesasListas) {
       guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
     }
     logout();
     setVistaActual('home');
     setMesaSeleccionada(null);
-    // No borramos localStorage: el próximo login de la misma sucursal recupera las cuentas
     setCargaMesas({});
     setNombresMesas({});
     setCuentasMesasListas(false);
@@ -109,14 +215,37 @@ export default function App() {
   };
 
   const handleActualizarCargaMesa = (numeroMesa, productos) => {
-    setCargaMesas((prev) => ({
-      ...prev,
-      [numeroMesa]: productos,
-    }));
+    const vacia = !Array.isArray(productos) || productos.length === 0;
+
+    setCargaMesas((prev) => {
+      const nuevo = { ...prev };
+      if (vacia) {
+        delete nuevo[numeroMesa];
+        delete nuevo[String(numeroMesa)];
+      } else {
+        nuevo[numeroMesa] = productos;
+      }
+      return nuevo;
+    });
+
+    if (vacia) {
+      setNombresMesas((prev) => {
+        const nuevo = { ...prev };
+        delete nuevo[numeroMesa];
+        delete nuevo[String(numeroMesa)];
+        return nuevo;
+      });
+      mesaCuentasApi.eliminar(numeroMesa).catch(() => {});
+    }
   };
 
   const handleConfirmarVentaMesa = async (numeroMesa, ventaPayload) => {
     const venta = await store.registrarVenta(ventaPayload);
+    try {
+      await mesaCuentasApi.eliminar(numeroMesa);
+    } catch {
+      // la venta ya se registró; limpiamos local igual
+    }
     setCargaMesas((prev) => {
       const nuevo = { ...prev };
       delete nuevo[numeroMesa];

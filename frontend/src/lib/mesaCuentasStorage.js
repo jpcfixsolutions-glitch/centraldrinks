@@ -1,6 +1,6 @@
 /**
- * Persistencia local de cuentas abiertas de mesas por sucursal.
- * Sobrevive a logout/cambio de usuario en el mismo navegador/terminal.
+ * Caché local de cuentas abiertas (fallback / migración).
+ * La fuente de verdad es el backend (/mesa-cuentas).
  */
 
 const PREFIX = 'club22_mesa_cuentas';
@@ -28,7 +28,6 @@ export function cargarCuentasMesas(sucursalId) {
 
 export function guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas) {
   try {
-    // Limpiar mesas sin ítems para no acumular basura
     const cargaLimpia = {};
     for (const [numero, items] of Object.entries(cargaMesas || {})) {
       if (Array.isArray(items) && items.length > 0) {
@@ -48,6 +47,21 @@ export function guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas) {
       JSON.stringify({ cargaMesas: cargaLimpia, nombresMesas: nombresLimpios })
     );
   } catch {
-    // quota / modo privado: no bloquear la UI
+    // ignore
   }
+}
+
+/** Convierte respuesta del API a maps del frontend */
+export function cuentasApiAMaps(cuentas) {
+  const cargaMesas = {};
+  const nombresMesas = {};
+  for (const c of cuentas || []) {
+    const n = Number(c.numeroMesa);
+    if (!Number.isFinite(n)) continue;
+    if (Array.isArray(c.items) && c.items.length > 0) {
+      cargaMesas[n] = c.items;
+      if (c.nombreCliente) nombresMesas[n] = c.nombreCliente;
+    }
+  }
+  return { cargaMesas, nombresMesas };
 }

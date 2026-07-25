@@ -107,6 +107,14 @@ export const mesasApi = {
   eliminar: (id) => apiFetch(`/mesas/${id}`, { method: 'DELETE' }),
 };
 
+export const mesaCuentasApi = {
+  listar: () => apiFetch('/mesa-cuentas'),
+  upsert: (numeroMesa, data) =>
+    apiFetch(`/mesa-cuentas/${numeroMesa}`, { method: 'PUT', body: data }),
+  eliminar: (numeroMesa) =>
+    apiFetch(`/mesa-cuentas/${numeroMesa}`, { method: 'DELETE' }),
+};
+
 export const ventasApi = {
   listar: () => apiFetch('/ventas'),
   obtener: (id) => apiFetch(`/ventas/${id}`),

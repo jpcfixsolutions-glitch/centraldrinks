@@ -121,6 +121,21 @@ CREATE TABLE IF NOT EXISTS mesas (
 );
 
 -- ---------------------------------------------------------------------
+-- CUENTAS ABIERTAS DE MESAS (sync entre terminales)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS mesa_cuentas (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  sucursal_id    INTEGER REFERENCES sucursales(id),
+  numero_mesa    INTEGER NOT NULL,
+  nombre_cliente TEXT,
+  items_json     TEXT    NOT NULL DEFAULT '[]',
+  updated_at     TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mesa_cuentas_sucursal_numero
+  ON mesa_cuentas(sucursal_id, numero_mesa);
+
+-- ---------------------------------------------------------------------
 -- CIERRES DE CAJA
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cierres_caja (

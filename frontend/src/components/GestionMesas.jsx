@@ -52,8 +52,10 @@ export function GestionMesas({
   };
 
   const getEstadoMesa = (numeroMesa) => {
-    const productos = cargaMesas[numeroMesa];
+    const productos = cargaMesas[numeroMesa] ?? cargaMesas[String(numeroMesa)];
     if (productos && productos.length > 0) return 'ocupada';
+    const mesa = mesas.find((m) => m.numero === numeroMesa);
+    if (mesa?.estado === 'ocupada' || mesa?.estado === 'cerrando') return mesa.estado;
     return 'libre';
   };
 

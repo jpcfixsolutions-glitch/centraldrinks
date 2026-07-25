@@ -16,7 +16,8 @@ import { Stats } from './components/Stats.jsx';
 import { Login } from './components/Login.jsx';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useDataStore } from './hooks/useDataStore.jsx';
-import { formatearFechaCorta, parseFechaDB } from './lib/fechas.js';
+import { fechaLocalClave, formatearFechaCorta, formatearHora, parseFechaDB } from './lib/fechas.js';
+import { cargarCuentasMesas, guardarCuentasMesas } from './lib/mesaCuentasStorage.js';
 
 export default function App() {
   const { user: usuarioActual, loading: authLoading, logout } = useAuth();
@@ -24,19 +25,76 @@ export default function App() {
   const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
   const [cargaMesas, setCargaMesas] = useState({});
   const [nombresMesas, setNombresMesas] = useState({});
+  const [cuentasMesasListas, setCuentasMesasListas] = useState(false);
   const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
   const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
 
   const store = useDataStore({ enabled: !!usuarioActual });
   const cajaAbierta = store.cajaActual?.abierta ?? false;
   const resumenCaja = store.cajaActual?.resumen;
+  const sucursalId = usuarioActual?.sucursalId ?? null;
+
+  // Restaurar cuentas abiertas al iniciar sesión (por sucursal)
+  useEffect(() => {
+    if (!usuarioActual) {
+      setCargaMesas({});
+      setNombresMesas({});
+      setCuentasMesasListas(false);
+      return;
+    }
+
+    const { cargaMesas: carga, nombresMesas: nombres } = cargarCuentasMesas(
+      usuarioActual.sucursalId ?? null
+    );
+    setCargaMesas(carga);
+    setNombresMesas(nombres);
+    setCuentasMesasListas(true);
+  }, [usuarioActual?.id, usuarioActual?.sucursalId]);
+
+  // Persistir cuentas abiertas (sobrevive a logout en este terminal)
+  useEffect(() => {
+    if (!usuarioActual || !cuentasMesasListas) return;
+    guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
+  }, [usuarioActual, cuentasMesasListas, sucursalId, cargaMesas, nombresMesas]);
+
+  // Sincronizar estado ocupada/libre en backend según cuentas locales
+  useEffect(() => {
+    if (!usuarioActual || !cuentasMesasListas || store.mesas.length === 0) return;
+
+    const mesasSnapshot = store.mesas;
+    const cargaSnapshot = cargaMesas;
+
+    const timer = setTimeout(() => {
+      (async () => {
+        for (const mesa of mesasSnapshot) {
+          const items = cargaSnapshot[mesa.numero] ?? cargaSnapshot[String(mesa.numero)];
+          const deberiaEstarOcupada = Array.isArray(items) && items.length > 0;
+          const estadoDeseado = deberiaEstarOcupada ? 'ocupada' : 'libre';
+          if (mesa.estado === estadoDeseado) continue;
+          try {
+            await store.actualizarMesa(mesa.id, { estado: estadoDeseado });
+          } catch {
+            // no bloquear la UI si falla el sync
+          }
+        }
+      })();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [usuarioActual, cuentasMesasListas, cargaMesas, store.mesas, store.actualizarMesa]);
 
   const handleLogout = () => {
+    // Guardar antes de salir para no perder mesas ocupadas
+    if (cuentasMesasListas) {
+      guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
+    }
     logout();
     setVistaActual('home');
     setMesaSeleccionada(null);
+    // No borramos localStorage: el próximo login de la misma sucursal recupera las cuentas
     setCargaMesas({});
     setNombresMesas({});
+    setCuentasMesasListas(false);
   };
 
   const handleAbrirMesa = (numeroMesa) => {
@@ -93,6 +151,53 @@ export default function App() {
     () => ventasAbiertas.reduce((sum, v) => sum + v.total, 0),
     [ventasAbiertas]
   );
+
+  const hoyClave = fechaLocalClave(new Date());
+
+  const ventasHoy = useMemo(
+    () => store.ventas.filter((v) => fechaLocalClave(v.fecha) === hoyClave),
+    [store.ventas, hoyClave]
+  );
+
+  const totalVentasHoy = useMemo(
+    () => ventasHoy.reduce((sum, v) => sum + v.total, 0),
+    [ventasHoy]
+  );
+
+  const ticketsHoy = ventasHoy.length;
+
+  const gastosHoy = useMemo(
+    () => store.gastos.filter((g) => fechaLocalClave(g.fecha) === hoyClave),
+    [store.gastos, hoyClave]
+  );
+
+  /** Feed unificado para el panel Actividad Reciente (hoy, más recientes primero). */
+  const actividadReciente = useMemo(() => {
+    const ventas = ventasHoy.map((v) => ({
+      id: `venta-${v.id}`,
+      kind: 'venta',
+      titulo:
+        v.tipo === 'mesa'
+          ? `Venta mesa ${v.numeroMesa ?? ''}`
+          : 'Venta mostrador',
+      detalle: `${v.codigo} · ${v.metodoPago}`,
+      monto: v.total,
+      fecha: v.fecha,
+    }));
+
+    const gastos = gastosHoy.map((g) => ({
+      id: `gasto-${g.id}`,
+      kind: 'gasto',
+      titulo: 'Gasto',
+      detalle: g.asunto,
+      monto: -g.monto,
+      fecha: g.fecha,
+    }));
+
+    return [...ventas, ...gastos]
+      .sort((a, b) => parseFechaDB(b.fecha) - parseFechaDB(a.fecha))
+      .slice(0, 12);
+  }, [ventasHoy, gastosHoy]);
 
   const totalGastosFijos = useMemo(
     () => store.gastosFijos.reduce((sum, g) => sum + g.monto, 0),
@@ -506,7 +611,14 @@ export default function App() {
                   <p className="text-zinc-400 text-sm font-medium">Ventas de Hoy</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-white">$0.00</p>
+                  <p className="text-3xl font-bold text-white">
+                    ${totalVentasHoy.toLocaleString()}
+                  </p>
+                  {cajaAbierta && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Sesión: ${totalVentasAbiertas.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -519,8 +631,10 @@ export default function App() {
                   <p className="text-zinc-400 text-sm font-medium">Tickets Emitidos</p>
                 </div>
                 <div className="flex items-baseline gap-3">
-                  <p className="text-3xl font-bold text-white">0</p>
-                  <p className="text-sm text-zinc-500 mt-1">Sin actividad</p>
+                  <p className="text-3xl font-bold text-white">{ticketsHoy}</p>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    {ticketsHoy === 0 ? 'Sin actividad' : ticketsHoy === 1 ? 'ticket hoy' : 'tickets hoy'}
+                  </p>
                 </div>
               </div>
 
@@ -561,26 +675,71 @@ export default function App() {
               {/* Tarjeta Izquierda (Actividad Reciente) */}
               <div className="lg:col-span-2 bg-zinc-900/50 rounded-xl border border-zinc-800 flex flex-col min-h-[320px]">
                 <div className="p-6 border-b border-zinc-800/50 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-white">Actividad Reciente</h2>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">Actividad Reciente</h2>
+                    <p className="text-xs text-zinc-500 mt-0.5">Ventas y gastos de hoy</p>
+                  </div>
                   <Clock className="w-5 h-5 text-zinc-500" />
                 </div>
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                  {!cajaAbierta ? (
-                    <>
-                      <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
-                        <Clock className="w-8 h-8 text-zinc-600" />
-                      </div>
-                      <p className="text-xl font-bold text-white mb-2">La caja está cerrada</p>
-                      <p className="text-zinc-500">Abre la caja para comenzar</p>
-                    </>
+                <div className="flex-1 p-4 sm:p-6">
+                  {actividadReciente.length === 0 ? (
+                    <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center">
+                      {!cajaAbierta ? (
+                        <>
+                          <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
+                            <Clock className="w-8 h-8 text-zinc-600" />
+                          </div>
+                          <p className="text-xl font-bold text-white mb-2">Sin movimientos hoy</p>
+                          <p className="text-zinc-500">Abrí la caja para comenzar a operar</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+                            <Activity className="w-8 h-8 text-green-500" />
+                          </div>
+                          <p className="text-xl font-bold text-white mb-2">Caja operativa</p>
+                          <p className="text-zinc-500">Todavía no hay ventas ni gastos registrados hoy</p>
+                        </>
+                      )}
+                    </div>
                   ) : (
-                    <>
-                      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                        <Activity className="w-8 h-8 text-green-500" />
-                      </div>
-                      <p className="text-xl font-bold text-white mb-2">Caja Operativa</p>
-                      <p className="text-zinc-500">Lista para registrar movimientos</p>
-                    </>
+                    <ul className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                      {actividadReciente.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center gap-3 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/70 px-3 py-2.5 transition-colors"
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                              item.kind === 'venta'
+                                ? 'bg-green-500/20'
+                                : 'bg-red-500/20'
+                            }`}
+                          >
+                            {item.kind === 'venta' ? (
+                              <ShoppingBag className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <ArrowDown className="w-4 h-4 text-red-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-white truncate">{item.titulo}</p>
+                            <p className="text-xs text-zinc-500 truncate">{item.detalle}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p
+                              className={`text-sm font-bold ${
+                                item.kind === 'venta' ? 'text-green-400' : 'text-red-400'
+                              }`}
+                            >
+                              {item.kind === 'venta' ? '+' : ''}
+                              ${Math.abs(item.monto).toLocaleString()}
+                            </p>
+                            <p className="text-[11px] text-zinc-500">{formatearHora(item.fecha)}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>

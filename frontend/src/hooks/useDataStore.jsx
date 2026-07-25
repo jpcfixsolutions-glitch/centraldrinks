@@ -180,6 +180,12 @@ export function useDataStore({ enabled }) {
     return creada;
   }, []);
 
+  const actualizarMesa = useCallback(async (id, data) => {
+    const actualizada = await mesasApi.actualizar(id, data);
+    setMesas((prev) => prev.map((m) => (m.id === id ? { ...m, ...actualizada } : m)));
+    return actualizada;
+  }, []);
+
   const eliminarMesa = useCallback(async (id) => {
     await mesasApi.eliminar(id);
     setMesas((prev) => prev.filter((m) => m.id !== id));
@@ -299,6 +305,7 @@ export function useDataStore({ enabled }) {
     actualizarProducto,
     eliminarProducto,
     crearMesa,
+    actualizarMesa,
     eliminarMesa,
     registrarVenta,
     cerrarCajaActual,

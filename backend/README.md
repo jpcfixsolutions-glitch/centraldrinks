@@ -2,7 +2,7 @@
 
 API REST con Express + Drizzle ORM + Turso (libSQL) + JWT. **JavaScript puro** (sin TypeScript).
 
-## Setup rápidooo
+## Setup rápidoooo
 
 ```bash
 npm install

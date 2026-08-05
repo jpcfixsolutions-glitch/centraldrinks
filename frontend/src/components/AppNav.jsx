@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   MapPin,
+  Wallet,
 } from 'lucide-react';
 
 function NavButton({ active, onClick, title, children, className = '' }) {
@@ -59,6 +60,7 @@ export function AppNav({
   };
 
   const extraItems = [
+    { id: 'cuentas', label: 'Cuentas', icon: Wallet },
     puedeAccederStock && { id: 'stock', label: 'Stock', icon: Package },
     esAdministrador && { id: 'stats', label: 'Estadísticas', icon: BarChart3 },
     puedeAccederCajas && { id: 'cajas', label: 'Cajas', icon: Archive },
@@ -96,6 +98,9 @@ export function AppNav({
           </NavButton>
           <NavButton active={active === 'mesas'} onClick={() => ir('mesas')} title="Mesas">
             <Utensils className="w-5 h-5" />
+          </NavButton>
+          <NavButton active={active === 'cuentas'} onClick={() => ir('cuentas')} title="Cuentas corrientes">
+            <Wallet className="w-5 h-5" />
           </NavButton>
           {puedeAccederStock && (
             <NavButton active={active === 'stock'} onClick={() => ir('stock')} title="Stock">

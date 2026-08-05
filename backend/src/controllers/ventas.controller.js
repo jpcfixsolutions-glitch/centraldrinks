@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import * as ventasService from '../services/ventas.service.js';
+import { esMetodoCuentaCorriente } from '../lib/cuentaCorriente.js';
 
 const itemSchema = z.object({
   productoId: z.number().int().nullable().optional(),
@@ -22,6 +23,7 @@ const ventaSchema = z.object({
   metodoPago: z.string().min(1),
   items: z.array(itemSchema).min(1),
   pagos: z.array(pagoSchema).optional(),
+  clienteId: z.number().int().positive().optional(),
 });
 
 export async function crear(req, res) {
@@ -30,15 +32,31 @@ export async function crear(req, res) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
   }
 
+  const data = parsed.data;
+  const esCuenta =
+    esMetodoCuentaCorriente(data.metodoPago) ||
+    (data.pagos || []).some((p) => esMetodoCuentaCorriente(p.metodoPago));
+
+  if (esCuenta && !data.clienteId) {
+    return res.status(400).json({ error: 'Se requiere un cliente para cargar a cuenta corriente' });
+  }
+
   try {
     const venta = await ventasService.crear(
-      parsed.data,
+      data,
       req.user?.sub,
       req.user?.sucursalId ?? null
     );
-    res.status(201).json({ id: venta.id, codigo: venta.codigo, fecha: venta.fecha, cierreCajaId: venta.cierreCajaId });
+    res.status(201).json({
+      id: venta.id,
+      codigo: venta.codigo,
+      fecha: venta.fecha,
+      cierreCajaId: venta.cierreCajaId,
+    });
   } catch (err) {
-    if (err.status === 400) return res.status(400).json({ error: err.message });
+    if (err.status === 400 || err.status === 404) {
+      return res.status(err.status).json({ error: err.message });
+    }
     throw err;
   }
 }

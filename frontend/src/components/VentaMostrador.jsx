@@ -111,7 +111,13 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
     setCarrito((prev) => prev.filter((p) => lineKey(p) !== key));
   };
 
-  const handleConfirmarVenta = async ({ descuento, pagos, metodoPagoPrincipal, totalACobrar }) => {
+  const handleConfirmarVenta = async ({
+    descuento,
+    pagos,
+    metodoPagoPrincipal,
+    totalACobrar,
+    clienteId,
+  }) => {
     const validacionCarrito = validarCarritoStock(productos, carrito);
     if (!validacionCarrito.ok) {
       alert(validacionCarrito.mensaje);
@@ -130,6 +136,7 @@ export function VentaMostrador({ onVolver, metodosPago, productos, ventas, onReg
         cantidad: p.cantidad,
       })),
       pagos,
+      ...(clienteId ? { clienteId } : {}),
     };
     const creada = await onRegistrarVenta(venta);
     setCarrito([]);

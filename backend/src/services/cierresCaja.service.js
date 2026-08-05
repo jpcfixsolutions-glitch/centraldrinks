@@ -5,6 +5,7 @@ import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
 import { ventaPagos } from '../models/ventaPagos.model.js';
 import { gastos } from '../models/gastos.model.js';
+import { cuentaMovimientos } from '../models/cuentaMovimientos.model.js';
 import { calcularResumenDesdeVentas } from './cajaResumen.js';
 
 async function pagosMapPorVentas(ventaIds) {
@@ -23,6 +24,19 @@ async function gastosDesde(fechaApertura, sucursalId) {
   const condiciones = [gte(gastos.fecha, fechaApertura)];
   if (sucursalId != null) condiciones.push(eq(gastos.sucursalId, sucursalId));
   return db.select().from(gastos).where(and(...condiciones));
+}
+
+async function pagosCuentaDeSesion(cierreCajaId) {
+  if (!cierreCajaId) return [];
+  return db
+    .select()
+    .from(cuentaMovimientos)
+    .where(
+      and(
+        eq(cuentaMovimientos.tipo, 'pago'),
+        eq(cuentaMovimientos.cierreCajaId, cierreCajaId)
+      )
+    );
 }
 
 function filtroPorSucursal(sucursalId) {
@@ -76,6 +90,7 @@ export async function obtenerResumenActual(sucursalId) {
   const ventaIds = ventasSesion.map((v) => v.id);
   const pagosMap = await pagosMapPorVentas(ventaIds);
   const gastosSesion = await gastosDesde(sesion.fechaApertura, sucursalId);
+  const pagosCuenta = await pagosCuentaDeSesion(sesion.id);
 
   const resumen = calcularResumenDesdeVentas({
     efectivoInicial: sesion.efectivoInicial,
@@ -83,6 +98,7 @@ export async function obtenerResumenActual(sucursalId) {
     pagosPorVenta: pagosMap,
     gastos: gastosSesion,
     fechaApertura: sesion.fechaApertura,
+    pagosCuentaCorriente: pagosCuenta,
   });
 
   return { sesion, resumen };
@@ -148,6 +164,7 @@ export async function cerrar(usuario) {
   const ventaIds = ventasSesion.map((v) => v.id);
   const pagosMap = await pagosMapPorVentas(ventaIds);
   const gastosSesion = await gastosDesde(sesion.fechaApertura, sucursalId);
+  const pagosCuenta = await pagosCuentaDeSesion(sesion.id);
 
   const resumen = calcularResumenDesdeVentas({
     efectivoInicial: sesion.efectivoInicial,
@@ -155,6 +172,7 @@ export async function cerrar(usuario) {
     pagosPorVenta: pagosMap,
     gastos: gastosSesion,
     fechaApertura: sesion.fechaApertura,
+    pagosCuentaCorriente: pagosCuenta,
   });
 
   const ahora = new Date().toISOString();

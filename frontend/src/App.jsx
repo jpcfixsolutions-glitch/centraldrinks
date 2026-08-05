@@ -13,6 +13,7 @@ import { GestionMesas } from './components/GestionMesas.jsx';
 import { Configuracion } from './components/Configuracion.jsx';
 import { ConsultaCajas } from './components/ConsultaCajas.jsx';
 import { Stats } from './components/Stats.jsx';
+import { CuentasCorrientes } from './components/CuentasCorrientes.jsx';
 import { Login } from './components/Login.jsx';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useDataStore } from './hooks/useDataStore.jsx';
@@ -598,6 +599,14 @@ export default function App() {
             </div>
           )}
       </div>
+    );
+  } else if (vistaActual === 'cuentas') {
+    contenido = (
+      <CuentasCorrientes
+        onVolver={() => setVistaActual('home')}
+        metodosPago={store.metodosPago}
+        onPagoRegistrado={store.recargarCajaActual}
+      />
     );
   } else if (vistaActual === 'configuracion') {
     contenido = (

@@ -15,6 +15,8 @@ export { gastosFijos } from './gastosFijos.model.js';
 export { botellasBarra } from './botellasBarra.model.js';
 export { auditLogs } from './auditLogs.model.js';
 export { suscripciones } from './suscripciones.model.js';
+export { clientes } from './clientes.model.js';
+export { cuentaMovimientos } from './cuentaMovimientos.model.js';
 
 export {
   sucursalesRelations,

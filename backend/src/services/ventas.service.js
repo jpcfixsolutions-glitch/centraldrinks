@@ -1,10 +1,12 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
 import { ventaPagos } from '../models/ventaPagos.model.js';
 import { idSesionAbierta } from './cierresCaja.service.js';
 import { descontarStockVenta, validarStockVenta } from './productos.service.js';
+import { esMetodoCuentaCorriente } from '../lib/cuentaCorriente.js';
+import * as cuentasCorrientesService from './cuentasCorrientes.service.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -63,6 +65,16 @@ export async function crear(data, usuarioId, sucursalId) {
     throw err;
   }
 
+  const esCuenta =
+    esMetodoCuentaCorriente(data.metodoPago) ||
+    (data.pagos || []).some((p) => esMetodoCuentaCorriente(p.metodoPago));
+
+  if (esCuenta && !data.clienteId) {
+    const err = new Error('Se requiere un cliente para cargar a cuenta corriente');
+    err.status = 400;
+    throw err;
+  }
+
   const codigo = generarCodigo(data.tipo);
 
   await validarStockVenta(data.items);
@@ -98,6 +110,27 @@ export async function crear(data, usuarioId, sucursalId) {
 
   if (data.pagos?.length > 0) {
     await db.insert(ventaPagos).values(data.pagos.map((p) => ({ ...p, ventaId: venta.id })));
+  }
+
+  if (esCuenta && data.clienteId) {
+    const montoCargo = (data.pagos || [])
+      .filter((p) => esMetodoCuentaCorriente(p.metodoPago))
+      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+
+    if (montoCargo <= 0) {
+      const err = new Error('El monto a cargar en cuenta corriente debe ser mayor a 0');
+      err.status = 400;
+      throw err;
+    }
+
+    await cuentasCorrientesService.registrarCargo({
+      clienteId: data.clienteId,
+      monto: montoCargo,
+      ventaId: venta.id,
+      items: data.items,
+      sucursalId,
+      usuarioId,
+    });
   }
 
   return venta;

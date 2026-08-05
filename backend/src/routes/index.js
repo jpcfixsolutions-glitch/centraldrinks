@@ -13,6 +13,8 @@ import gastosRoutes from './gastos.routes.js';
 import botellasBarraRoutes from './botellasBarra.routes.js';
 import auditLogsRoutes from './auditLogs.routes.js';
 import suscripcionRoutes from './suscripcion.routes.js';
+import clientesRoutes from './clientes.routes.js';
+import cuentasCorrientesRoutes from './cuentasCorrientes.routes.js';
 
 const router = Router();
 
@@ -30,5 +32,7 @@ router.use('/gastos', gastosRoutes);
 router.use('/botellas-barra', botellasBarraRoutes);
 router.use('/audit-logs', auditLogsRoutes);
 router.use('/suscripcion', suscripcionRoutes);
+router.use('/clientes', clientesRoutes);
+router.use('/cuentas-corrientes', cuentasCorrientesRoutes);
 
 export default router;

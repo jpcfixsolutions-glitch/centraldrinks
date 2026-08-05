@@ -249,6 +249,40 @@ CREATE TABLE IF NOT EXISTS botellas_barra (
 CREATE INDEX IF NOT EXISTS idx_botellas_producto ON botellas_barra(producto_id);
 
 -- ---------------------------------------------------------------------
+-- CLIENTES / CUENTAS CORRIENTES
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS clientes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre      TEXT    NOT NULL,
+  apellido    TEXT    NOT NULL,
+  documento   TEXT    NOT NULL,
+  telefono    TEXT    NOT NULL,
+  sucursal_id INTEGER REFERENCES sucursales(id),
+  activo      INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+  created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_clientes_documento_sucursal
+  ON clientes(documento, sucursal_id);
+
+CREATE TABLE IF NOT EXISTS cuenta_movimientos (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  cliente_id      INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  tipo            TEXT    NOT NULL CHECK (tipo IN ('cargo', 'pago')),
+  monto           REAL    NOT NULL,
+  venta_id        INTEGER REFERENCES ventas(id) ON DELETE SET NULL,
+  metodo_pago     TEXT,
+  detalle         TEXT,
+  cierre_caja_id  INTEGER REFERENCES cierres_caja(id) ON DELETE SET NULL,
+  sucursal_id     INTEGER REFERENCES sucursales(id),
+  usuario_id      INTEGER,
+  fecha           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cuenta_mov_cliente ON cuenta_movimientos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_cuenta_mov_sucursal ON cuenta_movimientos(sucursal_id);
+
+-- ---------------------------------------------------------------------
 -- LOGS DE AUDITORÍA
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS audit_logs (

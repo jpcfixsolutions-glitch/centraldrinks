@@ -137,7 +137,13 @@ export function VentaMesa({
     setShowCerrarMesaModal(true);
   };
 
-  const handleConfirmarCerrarMesa = async ({ descuento, pagos, metodoPagoPrincipal, totalACobrar }) => {
+  const handleConfirmarCerrarMesa = async ({
+    descuento,
+    pagos,
+    metodoPagoPrincipal,
+    totalACobrar,
+    clienteId,
+  }) => {
     const validacionCarrito = validarCarritoStock(productos, carrito);
     if (!validacionCarrito.ok) {
       alert(validacionCarrito.mensaje);
@@ -157,6 +163,7 @@ export function VentaMesa({
         cantidad: p.cantidad,
       })),
       pagos,
+      ...(clienteId ? { clienteId } : {}),
     };
     const creada = await onConfirmarVenta(numeroMesa, venta);
     setShowCerrarMesaModal(false);

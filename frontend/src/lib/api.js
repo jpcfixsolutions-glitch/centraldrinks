@@ -160,3 +160,17 @@ export const suscripcionApi = {
   reactivar: () =>
     apiFetch('/suscripcion/reactivar', { method: 'POST' }),
 };
+
+export const clientesApi = {
+  listar: () => apiFetch('/clientes'),
+  buscarPorDocumento: (documento) => apiFetch(`/clientes/documento/${encodeURIComponent(documento)}`),
+  crear: (data) => apiFetch('/clientes', { method: 'POST', body: data }),
+  actualizar: (id, data) => apiFetch(`/clientes/${id}`, { method: 'PUT', body: data }),
+};
+
+export const cuentasCorrientesApi = {
+  listar: () => apiFetch('/cuentas-corrientes'),
+  obtener: (clienteId) => apiFetch(`/cuentas-corrientes/${clienteId}`),
+  registrarPago: (clienteId, data) =>
+    apiFetch(`/cuentas-corrientes/${clienteId}/pagos`, { method: 'POST', body: data }),
+};

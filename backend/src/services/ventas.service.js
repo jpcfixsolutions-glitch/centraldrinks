@@ -7,6 +7,7 @@ import { idSesionAbierta } from './cierresCaja.service.js';
 import { descontarStockVenta, validarStockVenta } from './productos.service.js';
 import { esMetodoCuentaCorriente } from '../lib/cuentaCorriente.js';
 import * as cuentasCorrientesService from './cuentasCorrientes.service.js';
+import * as mesaCuentasService from './mesaCuentas.service.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -131,6 +132,10 @@ export async function crear(data, usuarioId, sucursalId) {
       sucursalId,
       usuarioId,
     });
+  }
+
+  if (data.tipo === 'mesa' && data.numeroMesa) {
+    await mesaCuentasService.eliminar(sucursalId ?? null, data.numeroMesa);
   }
 
   return venta;

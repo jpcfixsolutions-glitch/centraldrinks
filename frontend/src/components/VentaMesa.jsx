@@ -50,7 +50,12 @@ export function VentaMesa({
     if (e.key === 'Escape') handleCancelarNombre();
   };
 
+  const syncInicialRef = useRef(true);
   useEffect(() => {
+    if (syncInicialRef.current) {
+      syncInicialRef.current = false;
+      return;
+    }
     onActualizarCarga(numeroMesa, carrito);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carrito, numeroMesa]);

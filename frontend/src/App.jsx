@@ -29,6 +29,31 @@ function mapsDesdeCuentas(cuentas) {
   return cuentasApiAMaps(cuentas);
 }
 
+const CIERRE_MESA_MS = 10000;
+
+function quitarMesaDelMapa(map, numero) {
+  const nuevo = { ...map };
+  delete nuevo[numero];
+  delete nuevo[Number(numero)];
+  delete nuevo[String(numero)];
+  return nuevo;
+}
+
+function marcarMesaCerrada(cerradasUntilRef, numero) {
+  cerradasUntilRef.current.set(Number(numero), Date.now() + CIERRE_MESA_MS);
+}
+
+function mesaRecienCerrada(cerradasUntilRef, numero) {
+  const n = Number(numero);
+  const until = cerradasUntilRef.current.get(n);
+  if (until == null) return false;
+  if (Date.now() > until) {
+    cerradasUntilRef.current.delete(n);
+    return false;
+  }
+  return true;
+}
+
 export default function App() {
   const { user: usuarioActual, loading: authLoading, logout } = useAuth();
   const [vistaActual, setVistaActual] = useState('home');
@@ -40,6 +65,9 @@ export default function App() {
   const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
   const syncingRef = useRef(false);
   const mesaSeleccionadaRef = useRef(null);
+  const dirtyMesasRef = useRef(new Set());
+  const cerradasUntilRef = useRef(new Map());
+  const syncGenRef = useRef(0);
 
   const store = useDataStore({ enabled: !!usuarioActual });
   const cajaAbierta = store.cajaActual?.abierta ?? false;
@@ -52,20 +80,35 @@ export default function App() {
 
   const aplicarCuentasRemotas = (cuentas, { preservarMesaAbierta = false } = {}) => {
     const { cargaMesas: carga, nombresMesas: nombres } = mapsDesdeCuentas(cuentas);
-    const mesaAbierta = mesaSeleccionadaRef.current;
 
-    if (preservarMesaAbierta && mesaAbierta != null) {
+    for (const key of Object.keys(carga)) {
+      if (!mesaRecienCerrada(cerradasUntilRef, key)) continue;
+      delete carga[key];
+      delete nombres[key];
+      delete nombres[Number(key)];
+      delete nombres[String(key)];
+    }
+
+    const mesaAbierta = mesaSeleccionadaRef.current;
+    const nAbierta = mesaAbierta != null ? Number(mesaAbierta) : null;
+    const preservarEditsLocales =
+      preservarMesaAbierta &&
+      nAbierta != null &&
+      dirtyMesasRef.current.has(nAbierta) &&
+      !mesaRecienCerrada(cerradasUntilRef, nAbierta);
+
+    if (preservarEditsLocales) {
       setCargaMesas((prev) => {
         const merge = { ...carga };
         if (prev[mesaAbierta] || prev[String(mesaAbierta)]) {
-          merge[mesaAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
+          merge[nAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
         }
         return merge;
       });
       setNombresMesas((prev) => {
         const merge = { ...nombres };
         if (prev[mesaAbierta] != null || prev[String(mesaAbierta)] != null) {
-          merge[mesaAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
+          merge[nAbierta] = prev[mesaAbierta] ?? prev[String(mesaAbierta)];
         }
         return merge;
       });
@@ -140,30 +183,57 @@ export default function App() {
 
     guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
 
-    const timer = setTimeout(() => {
-      if (syncingRef.current) return;
+    let cancelado = false;
+    let retryTimer = null;
+
+    const run = async () => {
+      if (cancelado) return;
+      if (syncingRef.current) {
+        retryTimer = setTimeout(run, 200);
+        return;
+      }
+
       syncingRef.current = true;
+      const gen = syncGenRef.current;
 
-      (async () => {
-        try {
-          for (const [numeroRaw, items] of Object.entries(cargaMesas)) {
-            const numero = Number(numeroRaw);
-            if (!Number.isFinite(numero)) continue;
-            if (!Array.isArray(items) || items.length === 0) continue;
-
-            const nombreCliente =
-              nombresMesas[numero] ?? nombresMesas[String(numero)] ?? '';
-            await mesaCuentasApi.upsert(numero, { items, nombreCliente });
+      try {
+        const pendientes = [...dirtyMesasRef.current];
+        for (const numero of pendientes) {
+          if (cancelado || gen !== syncGenRef.current) break;
+          if (mesaRecienCerrada(cerradasUntilRef, numero)) {
+            dirtyMesasRef.current.delete(numero);
+            continue;
           }
-        } catch {
-          // no bloquear UI
-        } finally {
-          syncingRef.current = false;
-        }
-      })();
-    }, 500);
 
-    return () => clearTimeout(timer);
+          const items = cargaMesas[numero] ?? cargaMesas[String(numero)];
+          if (!Array.isArray(items) || items.length === 0) {
+            dirtyMesasRef.current.delete(numero);
+            continue;
+          }
+
+          const nombreCliente =
+            nombresMesas[numero] ?? nombresMesas[String(numero)] ?? '';
+          await mesaCuentasApi.upsert(numero, { items, nombreCliente });
+
+          if (mesaRecienCerrada(cerradasUntilRef, numero)) {
+            await mesaCuentasApi.eliminar(numero);
+          }
+          dirtyMesasRef.current.delete(numero);
+        }
+      } catch {
+        // no bloquear UI
+      } finally {
+        syncingRef.current = false;
+      }
+    };
+
+    const timer = setTimeout(run, 500);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [usuarioActual, cuentasMesasListas, sucursalId, cargaMesas, nombresMesas]);
 
   // Polling entre terminales (grilla de mesas o cada cierto tiempo en general)
@@ -177,6 +247,13 @@ export default function App() {
         aplicarCuentasRemotas(cuentas, { preservarMesaAbierta: true });
         if (mesaSeleccionadaRef.current == null) {
           const maps = mapsDesdeCuentas(cuentas);
+          for (const key of Object.keys(maps.cargaMesas)) {
+            if (!mesaRecienCerrada(cerradasUntilRef, key)) continue;
+            delete maps.cargaMesas[key];
+            delete maps.nombresMesas[key];
+            delete maps.nombresMesas[Number(key)];
+            delete maps.nombresMesas[String(key)];
+          }
           guardarCuentasMesas(sucursalId, maps.cargaMesas, maps.nombresMesas);
         }
       } catch {
@@ -202,6 +279,9 @@ export default function App() {
     setCargaMesas({});
     setNombresMesas({});
     setCuentasMesasListas(false);
+    dirtyMesasRef.current.clear();
+    cerradasUntilRef.current.clear();
+    syncGenRef.current += 1;
   };
 
   const handleAbrirMesa = (numeroMesa) => {
@@ -209,55 +289,57 @@ export default function App() {
   };
 
   const handleActualizarNombreMesa = (numeroMesa, nombre) => {
+    const n = Number(numeroMesa);
     setNombresMesas((prev) => ({
       ...prev,
-      [numeroMesa]: nombre,
+      [n]: nombre,
     }));
+    dirtyMesasRef.current.add(n);
   };
 
   const handleActualizarCargaMesa = (numeroMesa, productos) => {
+    const n = Number(numeroMesa);
     const vacia = !Array.isArray(productos) || productos.length === 0;
 
     setCargaMesas((prev) => {
       const nuevo = { ...prev };
       if (vacia) {
-        delete nuevo[numeroMesa];
-        delete nuevo[String(numeroMesa)];
+        delete nuevo[n];
+        delete nuevo[String(n)];
       } else {
-        nuevo[numeroMesa] = productos;
+        nuevo[n] = productos;
       }
       return nuevo;
     });
 
     if (vacia) {
-      setNombresMesas((prev) => {
-        const nuevo = { ...prev };
-        delete nuevo[numeroMesa];
-        delete nuevo[String(numeroMesa)];
-        return nuevo;
-      });
-      mesaCuentasApi.eliminar(numeroMesa).catch(() => {});
+      marcarMesaCerrada(cerradasUntilRef, n);
+      dirtyMesasRef.current.delete(n);
+      syncGenRef.current += 1;
+      setNombresMesas((prev) => quitarMesaDelMapa(prev, n));
+      mesaCuentasApi.eliminar(n).catch(() => {});
+    } else {
+      cerradasUntilRef.current.delete(n);
+      dirtyMesasRef.current.add(n);
     }
   };
 
   const handleConfirmarVentaMesa = async (numeroMesa, ventaPayload) => {
+    const n = Number(numeroMesa);
+    marcarMesaCerrada(cerradasUntilRef, n);
+    dirtyMesasRef.current.delete(n);
+    syncGenRef.current += 1;
+
     const venta = await store.registrarVenta(ventaPayload);
     try {
-      await mesaCuentasApi.eliminar(numeroMesa);
+      await mesaCuentasApi.eliminar(n);
     } catch {
       // la venta ya se registró; limpiamos local igual
     }
-    setCargaMesas((prev) => {
-      const nuevo = { ...prev };
-      delete nuevo[numeroMesa];
-      return nuevo;
-    });
-    setNombresMesas((prev) => {
-      const nuevo = { ...prev };
-      delete nuevo[numeroMesa];
-      return nuevo;
-    });
+    setCargaMesas((prev) => quitarMesaDelMapa(prev, n));
+    setNombresMesas((prev) => quitarMesaDelMapa(prev, n));
     setMesaSeleccionada(null);
+    store.recargarMesas().catch(() => {});
     return venta;
   };
 
@@ -552,6 +634,7 @@ export default function App() {
           <div className={`flex-1 flex flex-col ${!cajaAbierta ? 'filter blur-md pointer-events-none opacity-40 select-none' : ''}`}>
             {mesaSeleccionada !== null ? (
               <VentaMesa
+                key={mesaSeleccionada}
                 numeroMesa={mesaSeleccionada}
                 onVolver={() => setMesaSeleccionada(null)}
                 onConfirmarVenta={handleConfirmarVentaMesa}

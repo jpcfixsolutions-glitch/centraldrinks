@@ -290,6 +290,7 @@ export function useDataStore({ enabled }) {
     abrirCaja,
     recargarTodo,
     recargarVentas,
+    recargarMesas,
     recargarCierres,
     recargarGastosFijos,
     recargarGastos,

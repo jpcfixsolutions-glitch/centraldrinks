@@ -1,4 +1,4 @@
-# Club 22 - Sistema POS
+# Club 22 - Sistema POSs
 
 Sistema de gestión y punto de venta para Club 22. **100% JavaScript** (sin TypeScript).
 

@@ -174,25 +174,41 @@ function GraficoBarras({ ventas, rangoTiempo }) {
 
 // ── Sección Histórico ────────────────────────────────────────────────────────
 
-function FilaPeriodo({ label, total, gastosMonto, movimientos }) {
+function FilaPeriodo({ label, total, gastosMonto, movimientos, onAgregarGasto }) {
   const [abierto, setAbierto] = useState(false);
   const balance = total - gastosMonto;
   return (
     <div className="border border-zinc-800 rounded-xl overflow-hidden">
-      <button
-        onClick={() => setAbierto((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 bg-zinc-900/60 hover:bg-zinc-800/60 transition-colors"
-      >
-        <div className="flex items-center gap-4 text-sm">
-          <span className="font-semibold text-white">{label}</span>
-          <span className="text-green-400">+${total.toLocaleString()}</span>
-          {gastosMonto > 0 && <span className="text-red-400">-${gastosMonto.toLocaleString()}</span>}
-          <span className={`font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            = ${balance.toLocaleString()}
-          </span>
-        </div>
-        {abierto ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-      </button>
+      <div className="flex items-stretch bg-zinc-900/60 hover:bg-zinc-800/60 transition-colors">
+        <button
+          onClick={() => setAbierto((v) => !v)}
+          className="flex-1 flex items-center justify-between px-5 py-4 text-left min-w-0"
+        >
+          <div className="flex items-center gap-4 text-sm flex-wrap">
+            <span className="font-semibold text-white">{label}</span>
+            <span className="text-green-400">+${total.toLocaleString()}</span>
+            {gastosMonto > 0 && <span className="text-red-400">-${gastosMonto.toLocaleString()}</span>}
+            <span className={`font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              = ${balance.toLocaleString()}
+            </span>
+          </div>
+          {abierto ? <ChevronUp className="w-4 h-4 text-zinc-500 shrink-0 ml-2" /> : <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0 ml-2" />}
+        </button>
+        {onAgregarGasto && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAgregarGasto();
+            }}
+            className="shrink-0 px-3 sm:px-4 border-l border-zinc-800 text-xs sm:text-sm text-red-400 hover:bg-red-600/10 hover:text-red-300 transition-colors flex items-center gap-1.5"
+            title="Agregar gasto a este mes"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Agregar gasto</span>
+          </button>
+        )}
+      </div>
 
       {abierto && (
         <div className="divide-y divide-zinc-800/60 bg-zinc-950/40 max-h-64 overflow-y-auto">
@@ -221,11 +237,12 @@ function FilaPeriodo({ label, total, gastosMonto, movimientos }) {
   );
 }
 
-function Historico({ ventas, gastos }) {
+function Historico({ ventas, gastos, onCrearGasto }) {
   const [vistaH, setVistaH] = useState('mes'); // 'mes' | 'semana'
+  const [mesGasto, setMesGasto] = useState(null); // YYYY-MM | null
+  const [guardandoMes, setGuardandoMes] = useState(false);
 
   const { porMes, porSemana } = useMemo(() => {
-    const hoy = new Date();
     const inicioMesActual = getInicioMesActual();
     const inicioSemanaActual = getInicioSemanaActual();
 
@@ -246,6 +263,19 @@ function Historico({ ventas, gastos }) {
     : Object.entries(porSemana).sort(([a], [b]) => b.localeCompare(a));
 
   const labelFn = vistaH === 'mes' ? labelMes : labelSemana;
+
+  const handleGuardarGastoMes = async (nuevoGasto) => {
+    if (!onCrearGasto) return;
+    setGuardandoMes(true);
+    try {
+      await onCrearGasto(nuevoGasto);
+      setMesGasto(null);
+    } catch (err) {
+      alert(err.message || 'Error al guardar el gasto');
+    } finally {
+      setGuardandoMes(false);
+    }
+  };
 
   return (
     <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden mb-8">
@@ -289,9 +319,22 @@ function Historico({ ventas, gastos }) {
             total={data.total}
             gastosMonto={data.gastosMonto}
             movimientos={data.movimientos}
+            onAgregarGasto={
+              vistaH === 'mes' && onCrearGasto ? () => setMesGasto(clave) : undefined
+            }
           />
         ))}
       </div>
+
+      {mesGasto && (
+        <ModalNuevoGasto
+          isOpen={Boolean(mesGasto)}
+          onClose={() => setMesGasto(null)}
+          onGuardar={handleGuardarGastoMes}
+          guardando={guardandoMes}
+          mesClave={mesGasto}
+        />
+      )}
     </div>
   );
 }
@@ -569,7 +612,7 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
         </div>
 
         {/* Histórico */}
-        <Historico ventas={ventas} gastos={gastos} />
+        <Historico ventas={ventas} gastos={gastos} onCrearGasto={onCrearGasto} />
 
         {/* Historial de movimientos del período actual */}
         <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden">
@@ -626,24 +669,52 @@ export function Stats({ onVolver, ventas, gastosFijos = [], gastos = [], product
 
 // ── Modal gasto ──────────────────────────────────────────────────────────────
 
-function ModalNuevoGasto({ isOpen, onClose, onGuardar, guardando = false }) {
+/** Último día válido del mes YYYY-MM (sin fechas futuras). */
+function diasDisponiblesMes(mesClave) {
+  const [y, m] = mesClave.split('-').map(Number);
+  const ultimoDelMes = new Date(y, m, 0).getDate();
+  const hoy = new Date();
+  const esMesActual = hoy.getFullYear() === y && hoy.getMonth() + 1 === m;
+  const maxDia = esMesActual ? Math.min(ultimoDelMes, hoy.getDate()) : ultimoDelMes;
+  return Array.from({ length: maxDia }, (_, i) => i + 1);
+}
+
+/** Fecha mediodía local → string UTC compatible con parseFechaDB / SQLite. */
+function fechaGastoEnMes(mesClave, dia) {
+  const [y, m] = mesClave.split('-').map(Number);
+  const d = new Date(y, m - 1, dia, 12, 0, 0, 0);
+  return d.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+function ModalNuevoGasto({ isOpen, onClose, onGuardar, guardando = false, mesClave = null }) {
+  const diasMes = mesClave ? diasDisponiblesMes(mesClave) : [];
   const [asunto, setAsunto] = useState('');
   const [monto, setMonto] = useState('');
   const [metodo, setMetodo] = useState('Efectivo');
+  const [dia, setDia] = useState(() => (diasMes.length ? diasMes[diasMes.length - 1] : 1));
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!asunto.trim() || !monto) { alert('Completá todos los campos'); return; }
-    await onGuardar({ asunto: asunto.trim(), monto: parseFloat(monto), metodo });
+    const payload = { asunto: asunto.trim(), monto: parseFloat(monto), metodo };
+    if (mesClave) {
+      const diaValido = diasMes.includes(Number(dia)) ? Number(dia) : diasMes[diasMes.length - 1];
+      payload.fecha = fechaGastoEnMes(mesClave, diaValido);
+    }
+    await onGuardar(payload);
   };
+
+  const titulo = mesClave
+    ? `Registrar Gasto — ${labelMes(mesClave)}`
+    : 'Registrar Gasto';
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-900 rounded-lg w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-zinc-800">
-          <h2 className="text-xl font-bold">Registrar Gasto</h2>
+          <h2 className="text-xl font-bold">{titulo}</h2>
           <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors">
             <X className="w-5 h-5 text-zinc-400" />
           </button>
@@ -677,6 +748,25 @@ function ModalNuevoGasto({ isOpen, onClose, onGuardar, guardando = false }) {
               </select>
             </div>
           </div>
+          {mesClave && (
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Día del mes</label>
+              <select
+                value={dia}
+                onChange={(e) => setDia(Number(e.target.value))}
+                className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-600 border border-zinc-700"
+              >
+                {diasMes.map((d) => (
+                  <option key={d} value={d}>
+                    {String(d).padStart(2, '0')}/{mesClave.slice(5)}/{mesClave.slice(0, 4)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1.5">
+                El gasto quedará registrado en {labelMes(mesClave)}. No se permiten fechas futuras.
+              </p>
+            </div>
+          )}
           <button
             type="submit" disabled={guardando}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors rounded-lg py-4 font-medium mt-4"

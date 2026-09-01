@@ -20,16 +20,17 @@ export async function listar(sucursalId) {
 }
 
 export async function crear(data, usuarioId, sucursalId) {
-  const [creado] = await db
-    .insert(gastos)
-    .values({
-      asunto: data.asunto,
-      monto: data.monto,
-      metodoPago: data.metodoPago ?? data.metodo,
-      usuarioId: usuarioId ?? null,
-      sucursalId: sucursalId ?? null,
-    })
-    .returning();
+  const values = {
+    asunto: data.asunto,
+    monto: data.monto,
+    metodoPago: data.metodoPago ?? data.metodo,
+    usuarioId: usuarioId ?? null,
+    sucursalId: sucursalId ?? null,
+  };
+  // Si no viene fecha, la DB aplica CURRENT_TIMESTAMP (comportamiento actual)
+  if (data.fecha) values.fecha = data.fecha;
+
+  const [creado] = await db.insert(gastos).values(values).returning();
   return toPublic(creado);
 }
 

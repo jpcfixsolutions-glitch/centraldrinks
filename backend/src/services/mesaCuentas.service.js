@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { mesaCuentas } from '../models/mesaCuentas.model.js';
 import { mesas } from '../models/mesas.model.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
 function parseItems(itemsJson) {
   try {
@@ -24,35 +25,57 @@ function toPublic(row) {
 }
 
 async function setEstadoMesa(sucursalId, numeroMesa, estado) {
-  const condiciones = [eq(mesas.numero, numeroMesa)];
-  if (sucursalId != null) condiciones.push(eq(mesas.sucursalId, sucursalId));
-
-  await db.update(mesas).set({ estado }).where(and(...condiciones));
+  await db
+    .update(mesas)
+    .set({ estado })
+    .where(and(eq(mesas.numero, numeroMesa), eq(mesas.sucursalId, sucursalId)));
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(mesaCuentas.sucursalId, sucursalId) : undefined;
-  const filas = await db.select().from(mesaCuentas).where(where);
-  return filas.map(toPublic).filter((c) => c.items.length > 0);
+  const sedeId = exigirSucursalId(sucursalId);
+  const filas = await db
+    .select({
+      id: mesaCuentas.id,
+      sucursalId: mesaCuentas.sucursalId,
+      numeroMesa: mesaCuentas.numeroMesa,
+      nombreCliente: mesaCuentas.nombreCliente,
+      itemsJson: mesaCuentas.itemsJson,
+      updatedAt: mesaCuentas.updatedAt,
+    })
+    .from(mesaCuentas)
+    .innerJoin(
+      mesas,
+      and(
+        eq(mesas.sucursalId, mesaCuentas.sucursalId),
+        eq(mesas.numero, mesaCuentas.numeroMesa)
+      )
+    )
+    .where(eq(mesaCuentas.sucursalId, sedeId));
+
+  return filas.map(toPublic).filter((cuenta) => cuenta.items.length > 0);
 }
 
 export async function upsert(sucursalId, numeroMesa, { items, nombreCliente }) {
+  const sedeId = exigirSucursalId(sucursalId);
   const itemsArr = Array.isArray(items) ? items : [];
   const nombre = typeof nombreCliente === 'string' ? nombreCliente : '';
 
   // Si queda vacía, eliminar la cuenta
   if (itemsArr.length === 0) {
-    return eliminar(sucursalId, numeroMesa);
+    return eliminar(sedeId, numeroMesa);
   }
 
-  const condiciones = [eq(mesaCuentas.numeroMesa, numeroMesa)];
-  if (sucursalId != null) condiciones.push(eq(mesaCuentas.sucursalId, sucursalId));
-
-  const [existente] = await db
-    .select()
-    .from(mesaCuentas)
-    .where(and(...condiciones))
+  const [mesa] = await db
+    .select({ id: mesas.id })
+    .from(mesas)
+    .where(and(eq(mesas.sucursalId, sedeId), eq(mesas.numero, numeroMesa)))
     .limit(1);
+
+  if (!mesa) {
+    const error = new Error('La mesa no existe en esta sede');
+    error.status = 404;
+    throw error;
+  }
 
   const now = new Date().toISOString();
   const payload = {
@@ -61,33 +84,33 @@ export async function upsert(sucursalId, numeroMesa, { items, nombreCliente }) {
     updatedAt: now,
   };
 
-  let fila;
-  if (existente) {
-    [fila] = await db
-      .update(mesaCuentas)
-      .set(payload)
-      .where(eq(mesaCuentas.id, existente.id))
-      .returning();
-  } else {
-    [fila] = await db
-      .insert(mesaCuentas)
-      .values({
-        sucursalId: sucursalId ?? null,
-        numeroMesa,
-        ...payload,
-      })
-      .returning();
-  }
+  const [fila] = await db
+    .insert(mesaCuentas)
+    .values({
+      sucursalId: sedeId,
+      numeroMesa,
+      ...payload,
+    })
+    .onConflictDoUpdate({
+      target: [mesaCuentas.sucursalId, mesaCuentas.numeroMesa],
+      set: payload,
+    })
+    .returning();
 
-  await setEstadoMesa(sucursalId, numeroMesa, 'ocupada');
+  await setEstadoMesa(sedeId, numeroMesa, 'ocupada');
   return toPublic(fila);
 }
 
 export async function eliminar(sucursalId, numeroMesa) {
-  const condiciones = [eq(mesaCuentas.numeroMesa, numeroMesa)];
-  if (sucursalId != null) condiciones.push(eq(mesaCuentas.sucursalId, sucursalId));
+  const sedeId = exigirSucursalId(sucursalId);
+  const condiciones = [
+    eq(mesaCuentas.numeroMesa, numeroMesa),
+    eq(mesaCuentas.sucursalId, sedeId),
+  ];
 
   const [borrada] = await db.delete(mesaCuentas).where(and(...condiciones)).returning();
-  await setEstadoMesa(sucursalId, numeroMesa, 'libre');
-  return borrada ? toPublic({ ...borrada, itemsJson: '[]' }) : { numeroMesa, items: [], nombreCliente: '' };
+  await setEstadoMesa(sedeId, numeroMesa, 'libre');
+  return borrada
+    ? toPublic({ ...borrada, itemsJson: '[]' })
+    : { numeroMesa, items: [], nombreCliente: '' };
 }

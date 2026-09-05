@@ -39,7 +39,7 @@ export async function obtener(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-  const cierre = await cierresCajaService.obtener(id);
+  const cierre = await cierresCajaService.obtener(id, req.user?.sucursalId ?? null);
   if (!cierre) return res.status(404).json({ error: 'Cierre no encontrado' });
   res.json(cierre);
 }

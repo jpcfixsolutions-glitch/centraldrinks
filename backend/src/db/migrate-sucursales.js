@@ -69,7 +69,7 @@ async function run() {
         estado      TEXT    NOT NULL DEFAULT 'libre'
                     CHECK (estado IN ('libre', 'ocupada', 'cerrando')),
         activa      INTEGER NOT NULL DEFAULT 1 CHECK (activa IN (0, 1)),
-        sucursal_id INTEGER REFERENCES sucursales(id),
+        sucursal_id INTEGER NOT NULL REFERENCES sucursales(id),
         created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (numero, sucursal_id)
       )

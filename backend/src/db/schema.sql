@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS mesas (
               CHECK (estado IN ('libre', 'ocupada', 'cerrando')),
   activa      INTEGER NOT NULL DEFAULT 1
               CHECK (activa IN (0, 1)),
-  sucursal_id INTEGER REFERENCES sucursales(id),
+  sucursal_id INTEGER NOT NULL REFERENCES sucursales(id),
   created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (numero, sucursal_id)
 );
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS mesas (
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mesa_cuentas (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  sucursal_id    INTEGER REFERENCES sucursales(id),
+  sucursal_id    INTEGER NOT NULL REFERENCES sucursales(id),
   numero_mesa    INTEGER NOT NULL,
   nombre_cliente TEXT,
   items_json     TEXT    NOT NULL DEFAULT '[]',
@@ -134,6 +134,12 @@ CREATE TABLE IF NOT EXISTS mesa_cuentas (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mesa_cuentas_sucursal_numero
   ON mesa_cuentas(sucursal_id, numero_mesa);
+
+CREATE INDEX IF NOT EXISTS idx_mesas_sucursal
+  ON mesas(sucursal_id);
+
+CREATE INDEX IF NOT EXISTS idx_mesa_cuentas_sucursal
+  ON mesa_cuentas(sucursal_id);
 
 -- ---------------------------------------------------------------------
 -- CIERRES DE CAJA

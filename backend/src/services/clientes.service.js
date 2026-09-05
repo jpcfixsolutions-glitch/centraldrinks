@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { clientes } from '../models/clientes.model.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
 function toPublic(c) {
   return {
@@ -21,17 +22,17 @@ function normalizarDocumento(documento) {
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(clientes.sucursalId, sucursalId) : undefined;
-  const lista = await db.select().from(clientes).where(where);
+  const sedeId = exigirSucursalId(sucursalId);
+  const lista = await db.select().from(clientes).where(eq(clientes.sucursalId, sedeId));
   return lista.map(toPublic);
 }
 
 export async function buscarPorDocumento(documento, sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
   const doc = normalizarDocumento(documento);
   if (!doc) return null;
 
-  const condiciones = [eq(clientes.documento, doc)];
-  if (sucursalId != null) condiciones.push(eq(clientes.sucursalId, sucursalId));
+  const condiciones = [eq(clientes.documento, doc), eq(clientes.sucursalId, sedeId)];
 
   const [encontrado] = await db
     .select()
@@ -43,8 +44,8 @@ export async function buscarPorDocumento(documento, sucursalId) {
 }
 
 export async function buscarPorId(id, sucursalId) {
-  const condiciones = [eq(clientes.id, id)];
-  if (sucursalId != null) condiciones.push(eq(clientes.sucursalId, sucursalId));
+  const sedeId = exigirSucursalId(sucursalId);
+  const condiciones = [eq(clientes.id, id), eq(clientes.sucursalId, sedeId)];
 
   const [encontrado] = await db
     .select()
@@ -56,6 +57,7 @@ export async function buscarPorId(id, sucursalId) {
 }
 
 export async function crear(data, sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
   const documento = normalizarDocumento(data.documento);
   if (!documento) {
     const err = new Error('Documento inválido');
@@ -63,7 +65,7 @@ export async function crear(data, sucursalId) {
     throw err;
   }
 
-  const existente = await buscarPorDocumento(documento, sucursalId);
+  const existente = await buscarPorDocumento(documento, sedeId);
   if (existente) {
     const err = new Error('Ya existe un cliente con ese documento');
     err.status = 409;
@@ -77,7 +79,7 @@ export async function crear(data, sucursalId) {
       apellido: data.apellido.trim(),
       documento,
       telefono: String(data.telefono).trim(),
-      sucursalId: sucursalId ?? null,
+      sucursalId: sedeId,
     })
     .returning();
 
@@ -85,6 +87,7 @@ export async function crear(data, sucursalId) {
 }
 
 export async function actualizar(id, data, sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
   const update = {};
   if (data.nombre != null) update.nombre = String(data.nombre).trim();
   if (data.apellido != null) update.apellido = String(data.apellido).trim();
@@ -96,7 +99,7 @@ export async function actualizar(id, data, sucursalId) {
       err.status = 400;
       throw err;
     }
-    const otro = await buscarPorDocumento(documento, sucursalId);
+    const otro = await buscarPorDocumento(documento, sedeId);
     if (otro && otro.id !== id) {
       const err = new Error('Ya existe un cliente con ese documento');
       err.status = 409;
@@ -106,8 +109,7 @@ export async function actualizar(id, data, sucursalId) {
   }
   if (data.activo != null) update.activo = data.activo;
 
-  const condiciones = [eq(clientes.id, id)];
-  if (sucursalId != null) condiciones.push(eq(clientes.sucursalId, sucursalId));
+  const condiciones = [eq(clientes.id, id), eq(clientes.sucursalId, sedeId)];
 
   const [actualizado] = await db
     .update(clientes)

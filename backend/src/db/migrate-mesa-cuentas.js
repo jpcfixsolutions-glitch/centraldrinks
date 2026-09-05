@@ -10,7 +10,7 @@ async function run() {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS mesa_cuentas (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      sucursal_id    INTEGER REFERENCES sucursales(id),
+      sucursal_id    INTEGER NOT NULL REFERENCES sucursales(id),
       numero_mesa    INTEGER NOT NULL,
       nombre_cliente TEXT,
       items_json     TEXT    NOT NULL DEFAULT '[]',

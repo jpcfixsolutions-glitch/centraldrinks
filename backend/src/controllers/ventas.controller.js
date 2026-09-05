@@ -69,7 +69,7 @@ export async function obtener(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-  const venta = await ventasService.obtener(id);
+  const venta = await ventasService.obtener(id, req.user?.sucursalId ?? null);
   if (!venta) return res.status(404).json({ error: 'Venta no encontrada' });
   res.json(venta);
 }

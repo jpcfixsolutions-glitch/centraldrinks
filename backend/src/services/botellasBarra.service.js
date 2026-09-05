@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from './db.js';
 import { botellasBarra } from '../models/botellasBarra.model.js';
 import { descontarStock } from './productos.service.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
 function toPublic(b) {
   return {
@@ -13,29 +14,29 @@ function toPublic(b) {
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(botellasBarra.sucursalId, sucursalId) : undefined;
+  const sedeId = exigirSucursalId(sucursalId);
   const lista = await db
     .select()
     .from(botellasBarra)
-    .where(where)
+    .where(eq(botellasBarra.sucursalId, sedeId))
     .orderBy(desc(botellasBarra.fechaApertura));
   return lista.map(toPublic);
 }
 
 export async function crear({ productoId, nombreProducto }, sucursalId) {
-  await descontarStock(productoId, 1);
+  const sedeId = exigirSucursalId(sucursalId);
+  await descontarStock(productoId, 1, sedeId);
 
   const [nueva] = await db
     .insert(botellasBarra)
-    .values({ productoId, nombreProducto, sucursalId: sucursalId ?? null })
+    .values({ productoId, nombreProducto, sucursalId: sedeId })
     .returning();
   return toPublic(nueva);
 }
 
 export async function eliminar(id, sucursalId) {
-  const where = sucursalId != null
-    ? and(eq(botellasBarra.id, id), eq(botellasBarra.sucursalId, sucursalId))
-    : eq(botellasBarra.id, id);
+  const sedeId = exigirSucursalId(sucursalId);
+  const where = and(eq(botellasBarra.id, id), eq(botellasBarra.sucursalId, sedeId));
 
   const [borrada] = await db.delete(botellasBarra).where(where).returning();
   return !!borrada;

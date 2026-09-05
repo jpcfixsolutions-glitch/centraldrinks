@@ -69,7 +69,11 @@ export default function App() {
   const cerradasUntilRef = useRef(new Map());
   const syncGenRef = useRef(0);
 
-  const store = useDataStore({ enabled: !!usuarioActual });
+  const tieneSedeOperativa =
+    usuarioActual?.rol !== 'creador' &&
+    Number.isInteger(Number(usuarioActual?.sucursalId)) &&
+    Number(usuarioActual?.sucursalId) > 0;
+  const store = useDataStore({ enabled: !!usuarioActual && tieneSedeOperativa });
   const cajaAbierta = store.cajaActual?.abierta ?? false;
   const resumenCaja = store.cajaActual?.resumen;
   const sucursalId = usuarioActual?.sucursalId ?? null;
@@ -121,7 +125,7 @@ export default function App() {
 
   // Cargar cuentas desde backend al iniciar sesión (+ migrar localStorage si hace falta)
   useEffect(() => {
-    if (!usuarioActual) {
+    if (!usuarioActual || !tieneSedeOperativa) {
       setCargaMesas({});
       setNombresMesas({});
       setCuentasMesasListas(false);
@@ -142,7 +146,7 @@ export default function App() {
           const local = cargarCuentasMesas(usuarioActual.sucursalId ?? null);
           const numeros = Object.keys(local.cargaMesas);
           if (numeros.length > 0) {
-            await Promise.all(
+            await Promise.allSettled(
               numeros.map((n) => {
                 const items = local.cargaMesas[n];
                 if (!items?.length) return null;
@@ -153,8 +157,11 @@ export default function App() {
               })
             );
             if (cancelado) return;
-            setCargaMesas(local.cargaMesas);
-            setNombresMesas(local.nombresMesas);
+            // El backend valida que cada número pertenezca a esta sede. Volvemos
+            // a leerlo para no revivir cuentas locales huérfanas o de otra sede.
+            const cuentasMigradas = await mesaCuentasApi.listar();
+            if (cancelado) return;
+            aplicarCuentasRemotas(cuentasMigradas);
           } else {
             setCargaMesas({});
             setNombresMesas({});
@@ -175,11 +182,11 @@ export default function App() {
     return () => {
       cancelado = true;
     };
-  }, [usuarioActual?.id, usuarioActual?.sucursalId]);
+  }, [usuarioActual?.id, usuarioActual?.sucursalId, tieneSedeOperativa]);
 
   // Caché local + push al backend solo de mesas tocadas localmente (debounced)
   useEffect(() => {
-    if (!usuarioActual || !cuentasMesasListas) return;
+    if (!usuarioActual || !tieneSedeOperativa || !cuentasMesasListas) return;
 
     guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
 
@@ -234,11 +241,18 @@ export default function App() {
       clearTimeout(timer);
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [usuarioActual, cuentasMesasListas, sucursalId, cargaMesas, nombresMesas]);
+  }, [
+    usuarioActual,
+    tieneSedeOperativa,
+    cuentasMesasListas,
+    sucursalId,
+    cargaMesas,
+    nombresMesas,
+  ]);
 
   // Polling entre terminales (grilla de mesas o cada cierto tiempo en general)
   useEffect(() => {
-    if (!usuarioActual || !cuentasMesasListas) return;
+    if (!usuarioActual || !tieneSedeOperativa || !cuentasMesasListas) return;
 
     const pull = async () => {
       if (syncingRef.current) return;
@@ -267,7 +281,7 @@ export default function App() {
     // Pull inmediato al entrar a mesas
     if (vistaActual === 'mesas') pull();
     return () => clearInterval(id);
-  }, [usuarioActual, cuentasMesasListas, vistaActual, sucursalId]);
+  }, [usuarioActual, tieneSedeOperativa, cuentasMesasListas, vistaActual, sucursalId]);
 
   const handleLogout = () => {
     if (cuentasMesasListas) {

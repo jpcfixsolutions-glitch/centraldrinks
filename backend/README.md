@@ -21,6 +21,7 @@ El servidor queda en `http://localhost:4000`.
 - `npm run dev` - desarrollo con `node --watch` (recarga al guardar)
 - `npm start` - corre el server
 - `npm run db:migrate` - **ejecuta `src/db/schema.sql`**: crea todas las tablas, índices y datos iniciales (usuarios, categorías, métodos de pago, mesas, productos demo)
+- `npm run db:migrate-aislamiento-mesas` - corrige usuarios asociados a una sede equivocada por dominio, resguarda mesas/cuentas huérfanas y activa restricciones de aislamiento por sede
 - `npm run db:seed` - opcional: regenera los hashes de contraseñas desde JS y verifica datos (idempotente)
 
 ## Estructura

@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import { clientes } from '../models/clientes.model.js';
 import { cuentaMovimientos } from '../models/cuentaMovimientos.model.js';
@@ -7,12 +7,18 @@ import { ventas } from '../models/ventas.model.js';
 import * as clientesService from './clientes.service.js';
 import { idSesionAbierta } from './cierresCaja.service.js';
 import { METODO_CUENTA_CORRIENTE } from '../lib/cuentaCorriente.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
-async function movimientosDeCliente(clienteId) {
+async function movimientosDeCliente(clienteId, sucursalId) {
   return db
     .select()
     .from(cuentaMovimientos)
-    .where(eq(cuentaMovimientos.clienteId, clienteId))
+    .where(
+      and(
+        eq(cuentaMovimientos.clienteId, clienteId),
+        eq(cuentaMovimientos.sucursalId, sucursalId)
+      )
+    )
     .orderBy(desc(cuentaMovimientos.fecha));
 }
 
@@ -26,8 +32,11 @@ export function calcularDeuda(movimientos) {
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(clientes.sucursalId, sucursalId) : undefined;
-  const listaClientes = await db.select().from(clientes).where(where);
+  const sedeId = exigirSucursalId(sucursalId);
+  const listaClientes = await db
+    .select()
+    .from(clientes)
+    .where(eq(clientes.sucursalId, sedeId));
 
   const clienteIds = listaClientes.map((c) => c.id);
   const todosMovs =
@@ -35,7 +44,12 @@ export async function listar(sucursalId) {
       ? await db
           .select()
           .from(cuentaMovimientos)
-          .where(inArray(cuentaMovimientos.clienteId, clienteIds))
+          .where(
+            and(
+              inArray(cuentaMovimientos.clienteId, clienteIds),
+              eq(cuentaMovimientos.sucursalId, sedeId)
+            )
+          )
       : [];
 
   const porCliente = new Map();
@@ -62,10 +76,11 @@ export async function listar(sucursalId) {
 }
 
 export async function obtenerDetalle(clienteId, sucursalId) {
-  const cliente = await clientesService.buscarPorId(clienteId, sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const cliente = await clientesService.buscarPorId(clienteId, sedeId);
   if (!cliente) return null;
 
-  const movimientos = await movimientosDeCliente(clienteId);
+  const movimientos = await movimientosDeCliente(clienteId, sedeId);
   const ventaIds = movimientos.filter((m) => m.ventaId).map((m) => m.ventaId);
   const items =
     ventaIds.length > 0
@@ -126,7 +141,8 @@ export async function registrarCargo({
   sucursalId,
   usuarioId,
 }) {
-  const cliente = await clientesService.buscarPorId(clienteId, sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const cliente = await clientesService.buscarPorId(clienteId, sedeId);
   if (!cliente) {
     const err = new Error('Cliente no encontrado');
     err.status = 404;
@@ -150,7 +166,7 @@ export async function registrarCargo({
       ventaId: ventaId ?? null,
       metodoPago: METODO_CUENTA_CORRIENTE,
       detalle,
-      sucursalId: sucursalId ?? null,
+      sucursalId: sedeId,
       usuarioId: usuarioId ?? null,
     })
     .returning();
@@ -159,7 +175,8 @@ export async function registrarCargo({
 }
 
 export async function registrarPago(clienteId, { monto, metodoPago }, usuarioId, sucursalId) {
-  const cliente = await clientesService.buscarPorId(clienteId, sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const cliente = await clientesService.buscarPorId(clienteId, sedeId);
   if (!cliente) {
     const err = new Error('Cliente no encontrado');
     err.status = 404;
@@ -172,7 +189,7 @@ export async function registrarPago(clienteId, { monto, metodoPago }, usuarioId,
     throw err;
   }
 
-  const movimientos = await movimientosDeCliente(clienteId);
+  const movimientos = await movimientosDeCliente(clienteId, sedeId);
   const deuda = calcularDeuda(movimientos);
   if (monto > deuda + 0.009) {
     const err = new Error(`El pago supera la deuda ($${deuda.toLocaleString()})`);
@@ -180,7 +197,7 @@ export async function registrarPago(clienteId, { monto, metodoPago }, usuarioId,
     throw err;
   }
 
-  const sesionId = await idSesionAbierta(sucursalId);
+  const sesionId = await idSesionAbierta(sedeId);
 
   const [mov] = await db
     .insert(cuentaMovimientos)
@@ -191,7 +208,7 @@ export async function registrarPago(clienteId, { monto, metodoPago }, usuarioId,
       metodoPago,
       detalle: JSON.stringify({ concepto: 'Pago a cuenta corriente' }),
       cierreCajaId: sesionId ?? null,
-      sucursalId: sucursalId ?? null,
+      sucursalId: sedeId,
       usuarioId: usuarioId ?? null,
     })
     .returning();

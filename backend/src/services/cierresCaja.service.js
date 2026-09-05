@@ -7,6 +7,7 @@ import { ventaPagos } from '../models/ventaPagos.model.js';
 import { gastos } from '../models/gastos.model.js';
 import { cuentaMovimientos } from '../models/cuentaMovimientos.model.js';
 import { calcularResumenDesdeVentas } from './cajaResumen.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
 async function pagosMapPorVentas(ventaIds) {
   if (ventaIds.length === 0) return new Map();
@@ -21,8 +22,10 @@ async function pagosMapPorVentas(ventaIds) {
 
 async function gastosDesde(fechaApertura, sucursalId) {
   if (!fechaApertura) return [];
-  const condiciones = [gte(gastos.fecha, fechaApertura)];
-  if (sucursalId != null) condiciones.push(eq(gastos.sucursalId, sucursalId));
+  const condiciones = [
+    gte(gastos.fecha, fechaApertura),
+    eq(gastos.sucursalId, sucursalId),
+  ];
   return db.select().from(gastos).where(and(...condiciones));
 }
 
@@ -40,25 +43,24 @@ async function pagosCuentaDeSesion(cierreCajaId) {
 }
 
 function filtroPorSucursal(sucursalId) {
-  return sucursalId != null
-    ? eq(cierresCaja.sucursalId, sucursalId)
-    : isNull(cierresCaja.sucursalId);
+  return eq(cierresCaja.sucursalId, sucursalId);
 }
 
 export async function obtenerAbierta(sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
   // Usa select con ORDER BY para resultado determinístico:
   // si hubiera varias abiertas (inconsistencia) siempre devuelve la de mayor ID.
   const rows = await db
     .select()
     .from(cierresCaja)
-    .where(and(eq(cierresCaja.abierta, true), filtroPorSucursal(sucursalId)))
+    .where(and(eq(cierresCaja.abierta, true), filtroPorSucursal(sedeId)))
     .orderBy(desc(cierresCaja.id))
     .limit(1);
   return rows[0] ?? null;
 }
 
 export async function abrir(usuario, efectivoInicial) {
-  const sucursalId = usuario.sucursalId ?? null;
+  const sucursalId = exigirSucursalId(usuario.sucursalId);
 
   // Verificar si ya existe una sesión abierta para esta sucursal
   const existente = await obtenerAbierta(sucursalId);
@@ -83,13 +85,14 @@ export async function abrir(usuario, efectivoInicial) {
 }
 
 export async function obtenerResumenActual(sucursalId) {
-  const sesion = await obtenerAbierta(sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const sesion = await obtenerAbierta(sedeId);
   if (!sesion) return null;
 
   const ventasSesion = await db.select().from(ventas).where(eq(ventas.cierreCajaId, sesion.id));
   const ventaIds = ventasSesion.map((v) => v.id);
   const pagosMap = await pagosMapPorVentas(ventaIds);
-  const gastosSesion = await gastosDesde(sesion.fechaApertura, sucursalId);
+  const gastosSesion = await gastosDesde(sesion.fechaApertura, sedeId);
   const pagosCuenta = await pagosCuentaDeSesion(sesion.id);
 
   const resumen = calcularResumenDesdeVentas({
@@ -105,8 +108,11 @@ export async function obtenerResumenActual(sucursalId) {
 }
 
 export async function listar(sucursalId) {
-  const condiciones = [eq(cierresCaja.abierta, false)];
-  if (sucursalId != null) condiciones.push(eq(cierresCaja.sucursalId, sucursalId));
+  const sedeId = exigirSucursalId(sucursalId);
+  const condiciones = [
+    eq(cierresCaja.abierta, false),
+    eq(cierresCaja.sucursalId, sedeId),
+  ];
 
   return db
     .select()
@@ -115,8 +121,11 @@ export async function listar(sucursalId) {
     .orderBy(desc(cierresCaja.fechaCierre));
 }
 
-export async function obtener(id) {
-  const cierre = await db.query.cierresCaja.findFirst({ where: eq(cierresCaja.id, id) });
+export async function obtener(id, sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
+  const cierre = await db.query.cierresCaja.findFirst({
+    where: and(eq(cierresCaja.id, id), eq(cierresCaja.sucursalId, sedeId)),
+  });
   if (!cierre) return null;
 
   const ventasCierre = await db.select().from(ventas).where(eq(ventas.cierreCajaId, id));
@@ -146,14 +155,15 @@ export async function obtener(id) {
 }
 
 export async function cerrar(usuario) {
-  const sucursalId = usuario.sucursalId ?? null;
+  const sucursalId = exigirSucursalId(usuario.sucursalId);
   const sesion = await obtenerAbierta(sucursalId);
   if (!sesion) return null;
 
   // Vincular ventas sin caja al cierre actual
-  const ventasSinCajaCondicion = sucursalId != null
-    ? and(isNull(ventas.cierreCajaId), eq(ventas.sucursalId, sucursalId))
-    : and(isNull(ventas.cierreCajaId), isNull(ventas.sucursalId));
+  const ventasSinCajaCondicion = and(
+    isNull(ventas.cierreCajaId),
+    eq(ventas.sucursalId, sucursalId)
+  );
 
   await db
     .update(ventas)
@@ -213,6 +223,7 @@ export async function cerrar(usuario) {
 }
 
 export async function idSesionAbierta(sucursalId) {
-  const sesion = await obtenerAbierta(sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const sesion = await obtenerAbierta(sedeId);
   return sesion?.id ?? null;
 }

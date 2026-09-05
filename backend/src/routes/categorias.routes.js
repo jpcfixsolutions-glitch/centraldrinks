@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import * as ctrl from '../controllers/categorias.controller.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireSucursal } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireSucursal);
 router.get('/', asyncHandler(ctrl.listar));
 router.post('/', requireRole('administrador'), asyncHandler(ctrl.crear));
 router.put('/:id', requireRole('administrador'), asyncHandler(ctrl.actualizar));

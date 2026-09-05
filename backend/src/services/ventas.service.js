@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import { ventas } from '../models/ventas.model.js';
 import { ventaItems } from '../models/ventaItems.model.js';
@@ -8,6 +8,7 @@ import { descontarStockVenta, validarStockVenta } from './productos.service.js';
 import { esMetodoCuentaCorriente } from '../lib/cuentaCorriente.js';
 import * as cuentasCorrientesService from './cuentasCorrientes.service.js';
 import * as mesaCuentasService from './mesaCuentas.service.js';
+import { exigirSucursalId } from '../lib/sucursal.js';
 
 function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
@@ -24,8 +25,12 @@ async function pagosPorVentas(ventaIds) {
 }
 
 export async function listar(sucursalId) {
-  const where = sucursalId != null ? eq(ventas.sucursalId, sucursalId) : undefined;
-  const lista = await db.select().from(ventas).where(where).orderBy(desc(ventas.fecha));
+  const sedeId = exigirSucursalId(sucursalId);
+  const lista = await db
+    .select()
+    .from(ventas)
+    .where(eq(ventas.sucursalId, sedeId))
+    .orderBy(desc(ventas.fecha));
   const ventaIds = lista.map((v) => v.id);
   const items = await itemsPorVentas(ventaIds);
   const pagos = await pagosPorVentas(ventaIds);
@@ -50,8 +55,11 @@ export async function listar(sucursalId) {
   }));
 }
 
-export async function obtener(id) {
-  const venta = await db.query.ventas.findFirst({ where: eq(ventas.id, id) });
+export async function obtener(id, sucursalId) {
+  const sedeId = exigirSucursalId(sucursalId);
+  const venta = await db.query.ventas.findFirst({
+    where: and(eq(ventas.id, id), eq(ventas.sucursalId, sedeId)),
+  });
   if (!venta) return null;
   const items = await db.select().from(ventaItems).where(eq(ventaItems.ventaId, id));
   const pagos = await db.select().from(ventaPagos).where(eq(ventaPagos.ventaId, id));
@@ -59,7 +67,8 @@ export async function obtener(id) {
 }
 
 export async function crear(data, usuarioId, sucursalId) {
-  const sesionId = await idSesionAbierta(sucursalId);
+  const sedeId = exigirSucursalId(sucursalId);
+  const sesionId = await idSesionAbierta(sedeId);
   if (!sesionId) {
     const err = new Error('No hay caja abierta. Abrí la caja antes de registrar ventas.');
     err.status = 400;
@@ -78,7 +87,7 @@ export async function crear(data, usuarioId, sucursalId) {
 
   const codigo = generarCodigo(data.tipo);
 
-  await validarStockVenta(data.items);
+  await validarStockVenta(data.items, sedeId);
 
   const [venta] = await db
     .insert(ventas)
@@ -91,7 +100,7 @@ export async function crear(data, usuarioId, sucursalId) {
       metodoPago: data.metodoPago,
       usuarioId: usuarioId ?? null,
       cierreCajaId: sesionId,
-      sucursalId: sucursalId ?? null,
+      sucursalId: sedeId,
     })
     .returning();
 
@@ -106,7 +115,7 @@ export async function crear(data, usuarioId, sucursalId) {
       }))
     );
 
-    await descontarStockVenta(data.items);
+    await descontarStockVenta(data.items, sedeId);
   }
 
   if (data.pagos?.length > 0) {
@@ -129,13 +138,13 @@ export async function crear(data, usuarioId, sucursalId) {
       monto: montoCargo,
       ventaId: venta.id,
       items: data.items,
-      sucursalId,
+      sucursalId: sedeId,
       usuarioId,
     });
   }
 
   if (data.tipo === 'mesa' && data.numeroMesa) {
-    await mesaCuentasService.eliminar(sucursalId ?? null, data.numeroMesa);
+    await mesaCuentasService.eliminar(sedeId, data.numeroMesa);
   }
 
   return venta;

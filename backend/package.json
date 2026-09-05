@@ -28,7 +28,6 @@
     "@libsql/client": "^0.14.0",
     "@vercel/node": "^5.8.4",
     "bcryptjs": "^2.4.3",
-    "centraldrinks-backend": "link:",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.4",

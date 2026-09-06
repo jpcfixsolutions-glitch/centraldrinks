@@ -3,7 +3,7 @@ const API_URL = configuredUrl ?? (import.meta.env.DEV ? '/api' : '');
 
 const TOKEN_KEY = 'centraldrinks_token';
 export const AUTH_EXPIRED_EVENT = 'centraldrinks:auth-expired';
-const MESA_SYNC_HEADERS = { 'X-Mesa-Sync-Version': '2' };
+const MESA_SYNC_HEADERS = { 'X-Mesa-Sync-Version': '3' };
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);

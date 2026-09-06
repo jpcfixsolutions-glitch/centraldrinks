@@ -7,6 +7,10 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 const router = Router();
 
 router.use(requireAuth, requireSucursal);
+router.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 router.get('/', asyncHandler(ctrl.listar));
 router.put('/:numeroMesa', requireMesaSyncVersion, asyncHandler(ctrl.upsert));
 router.delete('/:numeroMesa', requireMesaSyncVersion, asyncHandler(ctrl.eliminar));

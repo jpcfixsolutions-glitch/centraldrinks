@@ -10,6 +10,7 @@ export function CerrarCajaModal({
   resumen,
   efectivoInicial = 0,
   mesasPendientes = [],
+  errorCuentasMesas = null,
 }) {
   const [procesando, setProcesando] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -120,7 +121,13 @@ export function CerrarCajaModal({
             </div>
           )}
 
-          {mesasPendientes.length > 0 && (
+          {errorCuentasMesas && (
+            <div className="rounded-lg border border-red-700 bg-red-950/60 p-4 text-sm text-red-200">
+              No se puede cerrar la caja hasta verificar las mesas con el servidor: {errorCuentasMesas}
+            </div>
+          )}
+
+          {!errorCuentasMesas && mesasPendientes.length > 0 && (
             <div className="flex flex-col gap-2 bg-red-500/10 border border-red-500/50 rounded-lg p-4">
               <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
                 <Utensils className="w-4 h-4 shrink-0" />
@@ -139,7 +146,7 @@ export function CerrarCajaModal({
             </div>
           )}
 
-          {mesasPendientes.length === 0 && (
+          {!errorCuentasMesas && mesasPendientes.length === 0 && (
             <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-200/90">
@@ -167,7 +174,7 @@ export function CerrarCajaModal({
           <button
             type="button"
             onClick={handleConfirmar}
-            disabled={procesando || mesasPendientes.length > 0}
+            disabled={procesando || mesasPendientes.length > 0 || !!errorCuentasMesas}
             className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg py-3 font-bold text-white"
           >
             {procesando ? 'Cerrando...' : 'Confirmar Cierre'}

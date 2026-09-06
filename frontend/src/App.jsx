@@ -20,9 +20,8 @@ import { useDataStore } from './hooks/useDataStore.jsx';
 import { mesaCuentasApi } from './lib/api.js';
 import { fechaLocalClave, formatearFechaCorta, formatearHora, parseFechaDB } from './lib/fechas.js';
 import {
-  cargarCuentasMesas,
   cuentasApiAMaps,
-  guardarCuentasMesas,
+  eliminarCuentasMesasLocales,
 } from './lib/mesaCuentasStorage.js';
 
 function mapsDesdeCuentas(cuentas) {
@@ -61,6 +60,7 @@ export default function App() {
   const [cargaMesas, setCargaMesas] = useState({});
   const [nombresMesas, setNombresMesas] = useState({});
   const [cuentasMesasListas, setCuentasMesasListas] = useState(false);
+  const [errorCuentasMesas, setErrorCuentasMesas] = useState(null);
   const [showAbrirCajaModal, setShowAbrirCajaModal] = useState(false);
   const [showCerrarCajaModal, setShowCerrarCajaModal] = useState(false);
   const syncingRef = useRef(false);
@@ -123,59 +123,36 @@ export default function App() {
     setNombresMesas(nombres);
   };
 
-  // Cargar cuentas desde backend al iniciar sesión (+ migrar localStorage si hace falta)
+  // El backend es la única fuente de verdad. El caché histórico se elimina para
+  // que nunca pueda reconstruir consumos que ya fueron borrados o cobrados.
   useEffect(() => {
     if (!usuarioActual || !tieneSedeOperativa) {
       setCargaMesas({});
       setNombresMesas({});
       setCuentasMesasListas(false);
+      setErrorCuentasMesas(null);
       return;
     }
 
     let cancelado = false;
+    eliminarCuentasMesasLocales(usuarioActual.sucursalId ?? null);
 
     (async () => {
       try {
         const cuentas = await mesaCuentasApi.listar();
         if (cancelado) return;
-
-        if (cuentas.length > 0) {
-          aplicarCuentasRemotas(cuentas);
-        } else {
-          // Migración one-shot: subir cuentas locales al backend
-          const local = cargarCuentasMesas(usuarioActual.sucursalId ?? null);
-          const numeros = Object.keys(local.cargaMesas);
-          if (numeros.length > 0) {
-            await Promise.allSettled(
-              numeros.map((n) => {
-                const items = local.cargaMesas[n];
-                if (!items?.length) return null;
-                return mesaCuentasApi.upsert(Number(n), {
-                  items,
-                  nombreCliente: local.nombresMesas[n] || '',
-                });
-              })
-            );
-            if (cancelado) return;
-            // El backend valida que cada número pertenezca a esta sede. Volvemos
-            // a leerlo para no revivir cuentas locales huérfanas o de otra sede.
-            const cuentasMigradas = await mesaCuentasApi.listar();
-            if (cancelado) return;
-            aplicarCuentasRemotas(cuentasMigradas);
-          } else {
-            setCargaMesas({});
-            setNombresMesas({});
-          }
-        }
-      } catch {
-        // Fallback local si el API falla
-        const local = cargarCuentasMesas(usuarioActual.sucursalId ?? null);
+        aplicarCuentasRemotas(cuentas);
+        setErrorCuentasMesas(null);
+        setCuentasMesasListas(true);
+      } catch (error) {
         if (!cancelado) {
-          setCargaMesas(local.cargaMesas);
-          setNombresMesas(local.nombresMesas);
+          setErrorCuentasMesas(
+            error?.message || 'No se pudieron consultar las cuentas de las mesas.'
+          );
+          setCuentasMesasListas(false);
         }
       } finally {
-        if (!cancelado) setCuentasMesasListas(true);
+        eliminarCuentasMesasLocales(usuarioActual.sucursalId ?? null);
       }
     })();
 
@@ -184,11 +161,9 @@ export default function App() {
     };
   }, [usuarioActual?.id, usuarioActual?.sucursalId, tieneSedeOperativa]);
 
-  // Caché local + push al backend solo de mesas tocadas localmente (debounced)
+  // Push al backend solo de mesas tocadas localmente (debounced).
   useEffect(() => {
     if (!usuarioActual || !tieneSedeOperativa || !cuentasMesasListas) return;
-
-    guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
 
     let cancelado = false;
     let retryTimer = null;
@@ -227,8 +202,10 @@ export default function App() {
           }
           dirtyMesasRef.current.delete(numero);
         }
-      } catch {
-        // no bloquear UI
+      } catch (error) {
+        if (!cancelado) {
+          setErrorCuentasMesas(error?.message || 'No se pudo guardar la cuenta de la mesa.');
+        }
       } finally {
         syncingRef.current = false;
       }
@@ -252,26 +229,20 @@ export default function App() {
 
   // Polling entre terminales (grilla de mesas o cada cierto tiempo en general)
   useEffect(() => {
-    if (!usuarioActual || !tieneSedeOperativa || !cuentasMesasListas) return;
+    if (!usuarioActual || !tieneSedeOperativa) return;
 
     const pull = async () => {
       if (syncingRef.current) return;
       try {
         const cuentas = await mesaCuentasApi.listar();
         aplicarCuentasRemotas(cuentas, { preservarMesaAbierta: true });
-        if (mesaSeleccionadaRef.current == null) {
-          const maps = mapsDesdeCuentas(cuentas);
-          for (const key of Object.keys(maps.cargaMesas)) {
-            if (!mesaRecienCerrada(cerradasUntilRef, key)) continue;
-            delete maps.cargaMesas[key];
-            delete maps.nombresMesas[key];
-            delete maps.nombresMesas[Number(key)];
-            delete maps.nombresMesas[String(key)];
-          }
-          guardarCuentasMesas(sucursalId, maps.cargaMesas, maps.nombresMesas);
-        }
-      } catch {
-        // ignore
+        setCuentasMesasListas(true);
+        setErrorCuentasMesas(null);
+        eliminarCuentasMesasLocales(sucursalId);
+      } catch (error) {
+        setErrorCuentasMesas(
+          error?.message || 'No se pudieron actualizar las cuentas de las mesas.'
+        );
       }
     };
 
@@ -284,9 +255,7 @@ export default function App() {
   }, [usuarioActual, tieneSedeOperativa, cuentasMesasListas, vistaActual, sucursalId]);
 
   const handleLogout = () => {
-    if (cuentasMesasListas) {
-      guardarCuentasMesas(sucursalId, cargaMesas, nombresMesas);
-    }
+    eliminarCuentasMesasLocales(sucursalId);
     logout();
     setVistaActual('home');
     setMesaSeleccionada(null);
@@ -331,7 +300,15 @@ export default function App() {
       dirtyMesasRef.current.delete(n);
       syncGenRef.current += 1;
       setNombresMesas((prev) => quitarMesaDelMapa(prev, n));
-      mesaCuentasApi.eliminar(n).catch(() => {});
+      mesaCuentasApi.eliminar(n).catch(async (error) => {
+        setErrorCuentasMesas(error?.message || `No se pudo liberar la mesa ${n}.`);
+        try {
+          const cuentas = await mesaCuentasApi.listar();
+          aplicarCuentasRemotas(cuentas);
+        } catch {
+          // Conservamos el mensaje original y el polling vuelve a intentar.
+        }
+      });
     } else {
       cerradasUntilRef.current.delete(n);
       dirtyMesasRef.current.add(n);
@@ -646,6 +623,11 @@ export default function App() {
     contenido = (
       <div className="flex-1 relative flex">
           <div className={`flex-1 flex flex-col ${!cajaAbierta ? 'filter blur-md pointer-events-none opacity-40 select-none' : ''}`}>
+            {errorCuentasMesas && (
+              <div className="m-4 mb-0 rounded-lg border border-red-700 bg-red-950/70 px-4 py-3 text-sm text-red-200">
+                No se pudo sincronizar el estado de las mesas: {errorCuentasMesas}
+              </div>
+            )}
             {mesaSeleccionada !== null ? (
               <VentaMesa
                 key={mesaSeleccionada}
@@ -1204,6 +1186,7 @@ export default function App() {
         resumen={resumenCaja}
         efectivoInicial={store.cajaActual?.sesion?.efectivoInicial ?? 0}
         mesasPendientes={mesasPendientes}
+        errorCuentasMesas={errorCuentasMesas}
       />
     </div>
   );

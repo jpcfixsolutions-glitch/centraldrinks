@@ -3,6 +3,7 @@ const API_URL = configuredUrl ?? (import.meta.env.DEV ? '/api' : '');
 
 const TOKEN_KEY = 'centraldrinks_token';
 export const AUTH_EXPIRED_EVENT = 'centraldrinks:auth-expired';
+const MESA_SYNC_HEADERS = { 'X-Mesa-Sync-Version': '2' };
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -110,9 +111,16 @@ export const mesasApi = {
 export const mesaCuentasApi = {
   listar: () => apiFetch('/mesa-cuentas'),
   upsert: (numeroMesa, data) =>
-    apiFetch(`/mesa-cuentas/${numeroMesa}`, { method: 'PUT', body: data }),
+    apiFetch(`/mesa-cuentas/${numeroMesa}`, {
+      method: 'PUT',
+      body: data,
+      headers: MESA_SYNC_HEADERS,
+    }),
   eliminar: (numeroMesa) =>
-    apiFetch(`/mesa-cuentas/${numeroMesa}`, { method: 'DELETE' }),
+    apiFetch(`/mesa-cuentas/${numeroMesa}`, {
+      method: 'DELETE',
+      headers: MESA_SYNC_HEADERS,
+    }),
 };
 
 export const ventasApi = {

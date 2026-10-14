@@ -99,3 +99,32 @@ test('un PUT atrasado no revierte el estado controlado por cocina', async () => 
   assert.equal(cuenta.items[0].estado, 'listo');
   assert.equal(cuenta.items[0].cantidad, 1);
 });
+
+test('permite entregar una bebida directamente pero no una comida', async () => {
+  const bebida = {
+    ...pendiente,
+    uid: 'bebida-1',
+    nombre: 'Cerveza',
+    categoria: 'Cervezas',
+    observaciones: '',
+  };
+  await mesaCuentasService.upsert(1, 1, { items: [bebida], nombreCliente: 'Ana' });
+
+  const cuenta = await mesaCuentasService.transicionarItems(1, 1, {
+    accion: 'entregar_directo',
+    uids: ['bebida-1'],
+  });
+  assert.equal(cuenta.items[0].estado, 'entregado');
+  assert.equal(cuenta.items[0].entregaDirecta, true);
+  assert.equal(cuenta.items[0].ronda, undefined);
+
+  const comida = { ...pendiente, uid: 'comida-1', categoria: 'Tapas' };
+  await mesaCuentasService.upsert(1, 1, { items: [...cuenta.items, comida], nombreCliente: 'Ana' });
+  await assert.rejects(
+    mesaCuentasService.transicionarItems(1, 1, {
+      accion: 'entregar_directo',
+      uids: ['comida-1'],
+    }),
+    /Solo las bebidas/
+  );
+});

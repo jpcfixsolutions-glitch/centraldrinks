@@ -4,6 +4,103 @@ import { BotonImprimirVenta } from './BotonImprimirVenta.jsx';
 import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 import { fechaLocalClave, formatearFechaHora } from '../lib/fechas.js';
 
+const ESTADOS_COMANDA = {
+  pendiente: {
+    label: 'Por enviar',
+    className: 'border-zinc-600 bg-zinc-800 text-zinc-300',
+  },
+  enviado: {
+    label: 'Enviado',
+    className: 'border-orange-700 bg-orange-950/70 text-orange-300',
+  },
+  en_cocina: {
+    label: 'En cocina',
+    className: 'border-amber-700 bg-amber-950/70 text-amber-300',
+  },
+  listo: {
+    label: 'Listo',
+    className: 'border-sky-700 bg-sky-950/70 text-sky-300',
+  },
+  entregado: {
+    label: 'Entregado',
+    className: 'border-emerald-700 bg-emerald-950/70 text-emerald-300',
+  },
+  cancelado: {
+    label: 'Cancelado',
+    className: 'border-red-900 bg-red-950/60 text-red-400',
+  },
+};
+
+const ORDEN_ESTADOS = ['pendiente', 'enviado', 'en_cocina', 'listo', 'entregado', 'cancelado'];
+
+function estadoVisibleItem(item) {
+  if (item?.estado === 'enviado' && item?.recibidoCocina) return 'en_cocina';
+  // Las cuentas creadas antes del flujo de comandas ya estaban listas para cobrar.
+  return item?.estado || 'entregado';
+}
+
+function cantidadItem(item) {
+  const cantidad = Number(item?.cantidad);
+  return Number.isFinite(cantidad) && cantidad > 0 ? cantidad : 1;
+}
+
+function resumirEstados(items) {
+  const estados = new Map();
+  for (const item of items) {
+    const estado = estadoVisibleItem(item);
+    estados.set(estado, (estados.get(estado) || 0) + cantidadItem(item));
+  }
+  return ORDEN_ESTADOS
+    .filter((estado) => estados.has(estado))
+    .map((estado) => ({ estado, cantidad: estados.get(estado) }));
+}
+
+function resumirComanda(items = []) {
+  const pendientes = [];
+  const rondas = new Map();
+
+  for (const item of items) {
+    if (estadoVisibleItem(item) === 'pendiente') {
+      pendientes.push(item);
+      continue;
+    }
+
+    const ronda = Number.isInteger(Number(item?.ronda)) && Number(item.ronda) > 0
+      ? Number(item.ronda)
+      : null;
+    const clave = item?.entregaDirecta ? 'directa' : (ronda ?? 'anterior');
+    if (!rondas.has(clave)) rondas.set(clave, []);
+    rondas.get(clave).push(item);
+  }
+
+  const resumen = [];
+  if (pendientes.length > 0) {
+    resumen.push({ clave: 'pendientes', label: 'Pedido nuevo', estados: resumirEstados(pendientes) });
+  }
+
+  const rondasOrdenadas = [...rondas.entries()].sort(([a], [b]) => {
+    if (a === 'anterior') return -1;
+    if (b === 'anterior') return 1;
+    if (a === 'directa') return -1;
+    if (b === 'directa') return 1;
+    return Number(a) - Number(b);
+  });
+
+  for (const [ronda, productos] of rondasOrdenadas) {
+    resumen.push({
+      clave: `ronda-${ronda}`,
+      label: ronda === 'anterior'
+        ? 'Pedido anterior'
+        : ronda === 'directa'
+          ? 'Entrega directa'
+          : `Ronda ${ronda}`,
+      estados: resumirEstados(productos),
+    });
+  }
+
+  return resumen;
+}
+
 export function GestionMesas({
   onVolver,
   mesas,
@@ -145,6 +242,8 @@ export function GestionMesas({
             {mesas.map((mesa) => {
               const esUltimaMesa = mesa.id === ultimaMesaId;
               const estadoReal = getEstadoMesa(mesa.numero);
+              const productosMesa = cargaMesas[mesa.numero] ?? cargaMesas[String(mesa.numero)] ?? [];
+              const resumenComanda = resumirComanda(productosMesa);
 
               const nombreActual = nombresMesas[mesa.numero] || '';
               const estaEditando = mesaEditando === mesa.numero;
@@ -152,9 +251,9 @@ export function GestionMesas({
               return (
                 <div
                   key={mesa.id}
-                  className="bg-zinc-900 hover:bg-zinc-800 transition-colors rounded-lg border border-zinc-800 relative overflow-hidden"
+                  className="bg-zinc-900 hover:bg-zinc-800 transition-colors rounded-lg border border-zinc-800 relative overflow-hidden min-h-44"
                 >
-                  <button onClick={() => onAbrirMesa(mesa.numero)} className="w-full p-6 text-left">
+                  <button onClick={() => onAbrirMesa(mesa.numero)} className="w-full h-full p-4 text-left">
                     <div
                       className={`absolute top-4 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${getEstadoColor(estadoReal)}`}
                     ></div>
@@ -163,6 +262,31 @@ export function GestionMesas({
                       <p className="text-sm font-semibold text-red-400 truncate mb-0.5">{nombreActual}</p>
                     )}
                     <p className="text-sm text-zinc-400 capitalize">{estadoReal}</p>
+
+                    {resumenComanda.length > 0 && (
+                      <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3 max-h-36 overflow-y-auto pr-1">
+                        {resumenComanda.map((grupo) => (
+                          <div key={grupo.clave}>
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                              {grupo.label}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {grupo.estados.map(({ estado, cantidad }) => {
+                                const config = ESTADOS_COMANDA[estado] || ESTADOS_COMANDA.entregado;
+                                return (
+                                  <span
+                                    key={estado}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${config.className}`}
+                                  >
+                                    {cantidad} {config.label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </button>
 
                   {/* Botón editar nombre */}

@@ -136,8 +136,23 @@ const TRANSICIONES = {
   recibir: { desde: ['enviado'], hacia: 'enviado' },
   listo: { desde: ['enviado'], hacia: 'listo' },
   entregar: { desde: ['listo'], hacia: 'entregado' },
+  entregar_directo: { desde: ['pendiente'], hacia: 'entregado' },
   cancelar: { desde: ['enviado', 'listo'], hacia: 'cancelado' },
 };
+
+const CATEGORIAS_BEBIDA = ['vino', 'cerveza', 'bebida', 'trago', 'coctel', 'licor', 'gaseosa', 'agua'];
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function esBebida(item) {
+  const categoria = normalizarTexto(item?.categoria);
+  return CATEGORIAS_BEBIDA.some((nombre) => categoria.includes(nombre));
+}
 
 export async function transicionarItems(sucursalId, numeroMesa, { accion, uids, ronda }) {
   const sedeId = exigirSucursalId(sucursalId);
@@ -162,6 +177,11 @@ export async function transicionarItems(sucursalId, numeroMesa, { accion, uids, 
         error.status = 409;
         throw error;
       }
+      if (accion === 'entregar_directo' && !esBebida(item)) {
+        const error = new Error('Solo las bebidas pueden entregarse sin pasar por cocina');
+        error.status = 409;
+        throw error;
+      }
       modificados += 1;
       if (accion === 'recibir') return { ...item, recibidoCocina: true, fecha_recepcion: ahora };
       return {
@@ -169,6 +189,8 @@ export async function transicionarItems(sucursalId, numeroMesa, { accion, uids, 
         estado: regla.hacia,
         ...(accion === 'enviar' ? { ronda, fecha_envio: ahora } : {}),
         ...(accion === 'listo' ? { recibidoCocina: true, fecha_listo: ahora } : {}),
+        ...(['entregar', 'entregar_directo'].includes(accion) ? { fecha_entrega: ahora } : {}),
+        ...(accion === 'entregar_directo' ? { entregaDirecta: true } : {}),
       };
     });
 

@@ -16,7 +16,7 @@ const upsertSchema = z.object({
 });
 
 const transicionSchema = z.object({
-  accion: z.enum(['enviar', 'recibir', 'listo', 'entregar', 'cancelar']),
+  accion: z.enum(['enviar', 'recibir', 'listo', 'entregar', 'entregar_directo', 'cancelar']),
   uids: z.array(z.string().min(1)).default([]),
   ronda: z.number().int().positive().optional(),
 }).refine((data) => data.uids.length > 0 || data.ronda != null, {

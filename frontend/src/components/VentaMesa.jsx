@@ -10,6 +10,20 @@ import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../l
 import { productoPorCodBarra } from '../lib/productos.js';
 import { mesaCuentasApi } from '../lib/api.js';
 
+const CATEGORIAS_ENTREGA_DIRECTA = ['vino', 'cerveza', 'bebida', 'trago', 'coctel', 'licor', 'gaseosa', 'agua'];
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function esBebida(producto) {
+  const categoria = normalizarTexto(producto?.categoria);
+  return CATEGORIAS_ENTREGA_DIRECTA.some((nombre) => categoria.includes(nombre));
+}
+
 function normalizarCarga(items) {
   return (Array.isArray(items) ? items : []).map((item) => ({
     ...item,
@@ -101,6 +115,20 @@ export function VentaMesa({
       setCarrito(normalizarCarga(cuenta.items));
     } catch (error) {
       alert(error.message || 'No se pudo actualizar el ítem');
+    }
+  };
+
+  const handleEntregarDirecto = async (uid) => {
+    try {
+      // Primero guarda el pedido nuevo para que la transición sea atómica en el backend.
+      await mesaCuentasApi.upsert(numeroMesa, { items: carrito, nombreCliente: nombreMesa });
+      const cuenta = await mesaCuentasApi.transicionarItems(numeroMesa, {
+        accion: 'entregar_directo',
+        uids: [uid],
+      });
+      setCarrito(normalizarCarga(cuenta.items));
+    } catch (error) {
+      alert(error.message || 'No se pudo marcar la bebida como entregada');
     }
   };
 
@@ -196,7 +224,7 @@ export function VentaMesa({
     }
     const noTerminados = carrito.filter(p => !['entregado', 'cancelado'].includes(p.estado));
     if (noTerminados.length > 0) {
-      alert('Hay ítems que aún no fueron entregados por cocina. No se puede cobrar.');
+      alert('Hay ítems que todavía no fueron entregados. No se puede cobrar.');
       return;
     }
     setShowCerrarMesaModal(true);
@@ -345,7 +373,7 @@ export function VentaMesa({
                         <p className="mt-1 text-xs text-yellow-400">Nota: {producto.observaciones}</p>
                       ) : null}
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                       <div className="flex items-center gap-2 bg-zinc-700 rounded-lg shrink-0">
                         <button
                           onClick={() => disminuirCantidad(producto.uid)}
@@ -367,12 +395,23 @@ export function VentaMesa({
                         ${(producto.precio * producto.cantidad).toLocaleString()}
                       </p>
                       {producto.estado === 'pendiente' ? (
-                        <button
-                          onClick={() => eliminarProducto(producto.uid)}
-                          className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <>
+                          {esBebida(producto) && (
+                            <button
+                              onClick={() => handleEntregarDirecto(producto.uid)}
+                              title="Entregar sin enviar a cocina"
+                              className="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-medium text-white"
+                            >
+                              Entregar directo
+                            </button>
+                          )}
+                          <button
+                            onClick={() => eliminarProducto(producto.uid)}
+                            className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
                       ) : producto.estado !== 'cancelado' ? (
                         <button
                           onClick={() => handleCambiarEstado(producto.uid, 'cancelar')}

@@ -10,10 +10,10 @@ function calcularStockEfectivo(componentes) {
   return Math.min(...componentes.map((c) => Math.floor(c.stock / c.cantidad)));
 }
 
-async function obtenerComponentesPorPromociones(promocionIds, sucursalId) {
+async function obtenerComponentesPorPromociones(promocionIds, sucursalId, executor = db) {
   if (promocionIds.length === 0) return new Map();
 
-  const filas = await db
+  const filas = await executor
     .select({
       promocionId: promocionItems.promocionId,
       productoId: promocionItems.productoId,
@@ -44,9 +44,9 @@ async function obtenerComponentesPorPromociones(promocionIds, sucursalId) {
   return mapa;
 }
 
-export async function obtenerComponentes(promocionId, sucursalId) {
+export async function obtenerComponentes(promocionId, sucursalId, executor = db) {
   const sedeId = exigirSucursalId(sucursalId);
-  const mapa = await obtenerComponentesPorPromociones([promocionId], sedeId);
+  const mapa = await obtenerComponentesPorPromociones([promocionId], sedeId, executor);
   return mapa.get(promocionId) ?? [];
 }
 
@@ -243,7 +243,7 @@ export async function eliminar(id, sucursalId) {
   return !!borrado;
 }
 
-export async function validarStockVenta(items, sucursalId) {
+export async function validarStockVenta(items, sucursalId, executor = db) {
   const sedeId = exigirSucursalId(sucursalId);
   const demandaPorProducto = new Map();
 
@@ -256,7 +256,7 @@ export async function validarStockVenta(items, sucursalId) {
   }
 
   for (const [productoId, cantidadSolicitada] of demandaPorProducto) {
-    const [producto] = await db
+    const [producto] = await executor
       .select()
       .from(productos)
       .where(and(eq(productos.id, productoId), eq(productos.sucursalId, sedeId)));
@@ -266,7 +266,7 @@ export async function validarStockVenta(items, sucursalId) {
       throw err;
     }
 
-    const componentes = await obtenerComponentes(productoId, sedeId);
+    const componentes = await obtenerComponentes(productoId, sedeId, executor);
     if (componentes.length > 0) {
       const stockPromo = calcularStockEfectivo(componentes);
       if (cantidadSolicitada > stockPromo) {
@@ -304,9 +304,9 @@ export async function validarStockVenta(items, sucursalId) {
   }
 }
 
-export async function descontarStock(productoId, cantidad, sucursalId) {
+export async function descontarStock(productoId, cantidad, sucursalId, executor = db) {
   const sedeId = exigirSucursalId(sucursalId);
-  const [actualizado] = await db
+  const [actualizado] = await executor
     .update(productos)
     .set({ stock: sql`${productos.stock} - ${cantidad}` })
     .where(
@@ -319,7 +319,7 @@ export async function descontarStock(productoId, cantidad, sucursalId) {
     .returning({ nombre: productos.nombre });
 
   if (!actualizado) {
-    const [producto] = await db
+    const [producto] = await executor
       .select({ nombre: productos.nombre })
       .from(productos)
       .where(and(eq(productos.id, productoId), eq(productos.sucursalId, sedeId)));
@@ -332,22 +332,23 @@ export async function descontarStock(productoId, cantidad, sucursalId) {
   }
 }
 
-export async function descontarStockVenta(items, sucursalId) {
+export async function descontarStockVenta(items, sucursalId, executor = db) {
   const sedeId = exigirSucursalId(sucursalId);
   for (const item of items) {
     if (!item.productoId) continue;
 
-    const componentes = await obtenerComponentes(item.productoId, sedeId);
+    const componentes = await obtenerComponentes(item.productoId, sedeId, executor);
     if (componentes.length > 0) {
       for (const componente of componentes) {
         await descontarStock(
           componente.productoId,
           componente.cantidad * item.cantidad,
-          sedeId
+          sedeId,
+          executor
         );
       }
     } else {
-      await descontarStock(item.productoId, item.cantidad, sedeId);
+      await descontarStock(item.productoId, item.cantidad, sedeId, executor);
     }
   }
 }

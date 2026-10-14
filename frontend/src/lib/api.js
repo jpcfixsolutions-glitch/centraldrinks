@@ -121,6 +121,12 @@ export const mesaCuentasApi = {
       method: 'DELETE',
       headers: MESA_SYNC_HEADERS,
     }),
+  transicionarItems: (numeroMesa, data) =>
+    apiFetch(`/mesa-cuentas/${numeroMesa}/items`, {
+      method: 'PATCH',
+      body: data,
+      headers: MESA_SYNC_HEADERS,
+    }),
 };
 
 export const ventasApi = {

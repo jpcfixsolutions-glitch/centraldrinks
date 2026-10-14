@@ -30,6 +30,7 @@ export function AgregarProductoModal({ isOpen, onClose, onAgregar, productos = [
   const getTipoPrecio = (productoId) => tipoPrecioPorProducto[productoId] ?? 'mostrador';
 
   const productosFiltrados = productos.filter((p) => {
+    if (p.activo === false) return false;
     const nombre = p.nombre?.toLowerCase() ?? '';
     const categoria = p.categoria?.toLowerCase() ?? '';
     const term = busqueda.toLowerCase();

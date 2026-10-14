@@ -10,6 +10,7 @@ export function AgregarProductoMesaModal({ isOpen, onClose, onAgregar, productos
   if (!isOpen) return null;
 
   const productosFiltrados = productos.filter((p) => {
+    if (p.activo === false) return false;
     const nombre = p.nombre?.toLowerCase() ?? '';
     const categoria = p.categoria?.toLowerCase() ?? '';
     const term = busqueda.toLowerCase();

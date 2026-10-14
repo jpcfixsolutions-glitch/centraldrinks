@@ -14,6 +14,34 @@ function generarCodigo(tipo) {
   return `${tipo === 'mesa' ? 'MESA' : 'MOST'}${Date.now()}`;
 }
 
+function claveItem(item) {
+  return `${item.productoId ?? item.id ?? ''}|${item.nombreProducto ?? item.nombre}|${Number(item.precio)}|${Number(item.cantidad)}`;
+}
+
+function validarComandaParaCobro(cuenta, itemsVenta) {
+  if (!cuenta) {
+    const err = new Error('La mesa no tiene una comanda abierta');
+    err.status = 409;
+    throw err;
+  }
+  const noTerminados = cuenta.items.filter((item) => !['entregado', 'cancelado'].includes(item.estado));
+  if (noTerminados.length > 0) {
+    const err = new Error('Hay ítems que todavía no fueron entregados o cancelados');
+    err.status = 409;
+    throw err;
+  }
+  const comandados = cuenta.items
+    .filter((item) => item.estado !== 'cancelado')
+    .map(claveItem)
+    .sort();
+  const cobrados = itemsVenta.map(claveItem).sort();
+  if (JSON.stringify(comandados) !== JSON.stringify(cobrados)) {
+    const err = new Error('Los ítems a cobrar no coinciden con la comanda');
+    err.status = 409;
+    throw err;
+  }
+}
+
 async function itemsPorVentas(ventaIds) {
   if (ventaIds.length === 0) return [];
   return db.select().from(ventaItems).where(inArray(ventaItems.ventaId, ventaIds));
@@ -86,12 +114,33 @@ export async function crear(data, usuarioId, sucursalId) {
   }
 
   const codigo = generarCodigo(data.tipo);
+  const subtotal = data.items.reduce(
+    (suma, item) => suma + Number(item.precio) * Number(item.cantidad),
+    0
+  );
+  if (data.descuento > subtotal + 0.01) {
+    const err = new Error('El descuento no puede superar el subtotal');
+    err.status = 400;
+    throw err;
+  }
+  if (data.pagos?.length > 0) {
+    const recargos = data.pagos.reduce((suma, pago) => suma + Number(pago.recargo || 0), 0);
+    const totalEsperado = subtotal - data.descuento + recargos;
+    if (Math.abs(totalEsperado - data.total) > 0.02) {
+      const err = new Error('El total no coincide con los ítems, descuento y recargos');
+      err.status = 400;
+      throw err;
+    }
+  }
 
-  await validarStockVenta(data.items, sedeId);
+  return db.transaction(async (tx) => {
+    if (data.tipo === 'mesa') {
+      const cuenta = await mesaCuentasService.obtenerPorMesa(sedeId, data.numeroMesa, tx);
+      validarComandaParaCobro(cuenta, data.items);
+    }
 
-  const [venta] = await db
-    .insert(ventas)
-    .values({
+    await validarStockVenta(data.items, sedeId, tx);
+    const [venta] = await tx.insert(ventas).values({
       codigo,
       tipo: data.tipo,
       numeroMesa: data.numeroMesa ?? null,
@@ -101,51 +150,44 @@ export async function crear(data, usuarioId, sucursalId) {
       usuarioId: usuarioId ?? null,
       cierreCajaId: sesionId,
       sucursalId: sedeId,
-    })
-    .returning();
+    }).returning();
 
-  if (data.items.length > 0) {
-    await db.insert(ventaItems).values(
-      data.items.map((item) => ({
-        ventaId: venta.id,
-        productoId: item.productoId ?? null,
-        nombreProducto: item.nombreProducto,
-        precio: item.precio,
-        cantidad: item.cantidad,
-      }))
-    );
+    await tx.insert(ventaItems).values(data.items.map((item) => ({
+      ventaId: venta.id,
+      productoId: item.productoId ?? null,
+      nombreProducto: item.nombreProducto,
+      precio: item.precio,
+      cantidad: item.cantidad,
+    })));
+    await descontarStockVenta(data.items, sedeId, tx);
 
-    await descontarStockVenta(data.items, sedeId);
-  }
-
-  if (data.pagos?.length > 0) {
-    await db.insert(ventaPagos).values(data.pagos.map((p) => ({ ...p, ventaId: venta.id })));
-  }
-
-  if (esCuenta && data.clienteId) {
-    const montoCargo = (data.pagos || [])
-      .filter((p) => esMetodoCuentaCorriente(p.metodoPago))
-      .reduce((s, p) => s + (Number(p.monto) || 0), 0);
-
-    if (montoCargo <= 0) {
-      const err = new Error('El monto a cargar en cuenta corriente debe ser mayor a 0');
-      err.status = 400;
-      throw err;
+    if (data.pagos?.length > 0) {
+      await tx.insert(ventaPagos).values(data.pagos.map((p) => ({ ...p, ventaId: venta.id })));
     }
 
-    await cuentasCorrientesService.registrarCargo({
-      clienteId: data.clienteId,
-      monto: montoCargo,
-      ventaId: venta.id,
-      items: data.items,
-      sucursalId: sedeId,
-      usuarioId,
-    });
-  }
+    if (esCuenta && data.clienteId) {
+      const montoCargo = (data.pagos || [])
+        .filter((p) => esMetodoCuentaCorriente(p.metodoPago))
+        .reduce((s, p) => s + (Number(p.monto) || 0), 0);
+      if (montoCargo <= 0) {
+        const err = new Error('El monto a cargar en cuenta corriente debe ser mayor a 0');
+        err.status = 400;
+        throw err;
+      }
+      await cuentasCorrientesService.registrarCargo({
+        clienteId: data.clienteId,
+        monto: montoCargo,
+        ventaId: venta.id,
+        items: data.items,
+        sucursalId: sedeId,
+        usuarioId,
+        executor: tx,
+      });
+    }
 
-  if (data.tipo === 'mesa' && data.numeroMesa) {
-    await mesaCuentasService.eliminar(sedeId, data.numeroMesa);
-  }
-
-  return venta;
+    if (data.tipo === 'mesa') {
+      await mesaCuentasService.eliminar(sedeId, data.numeroMesa, tx);
+    }
+    return venta;
+  });
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle, Pencil, Check, X, ScanBarcode } from 'lucide-react';
+import { ArrowLeft, Plus, Printer, Trash2, Minus, XCircle, Pencil, Check, X, ScanBarcode, Send } from 'lucide-react';
 import { AgregarProductoMesaModal } from './AgregarProductoMesaModal.jsx';
 import { CobroDivididoModal } from './CobroDivididoModal.jsx';
 import { TicketCobro, imprimirTicket } from './TicketCobro.jsx';
@@ -8,6 +8,18 @@ import { useImprimirVentaTicket } from '../hooks/useImprimirVentaTicket.jsx';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner.js';
 import { validarCantidadStock, validarCarritoStock, stockDisponible } from '../lib/stock.js';
 import { productoPorCodBarra } from '../lib/productos.js';
+import { mesaCuentasApi } from '../lib/api.js';
+
+function normalizarCarga(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    ...item,
+    uid: item.uid || crypto.randomUUID(),
+    // Las cuentas anteriores a comandas ya estaban listas para cobrar.
+    estado: item.estado || 'entregado',
+    ronda: item.ronda ?? null,
+    observaciones: item.observaciones || '',
+  }));
+}
 
 export function VentaMesa({
   numeroMesa,
@@ -20,7 +32,10 @@ export function VentaMesa({
   nombreMesa = '',
   onActualizarNombre,
 }) {
-  const [carrito, setCarrito] = useState(cargaInicial || []);
+  const teniaCargaLegacyRef = useRef(
+    (cargaInicial || []).some((item) => !item.uid || !item.estado)
+  );
+  const [carrito, setCarrito] = useState(() => normalizarCarga(cargaInicial));
   const [showAgregarModal, setShowAgregarModal] = useState(false);
   const [showCerrarMesaModal, setShowCerrarMesaModal] = useState(false);
   const [ventaRecienRegistrada, setVentaRecienRegistrada] = useState(null);
@@ -52,18 +67,52 @@ export function VentaMesa({
 
   const syncInicialRef = useRef(true);
   useEffect(() => {
-    if (syncInicialRef.current) {
+    if (syncInicialRef.current && !teniaCargaLegacyRef.current) {
       syncInicialRef.current = false;
       return;
     }
+    syncInicialRef.current = false;
     onActualizarCarga(numeroMesa, carrito);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carrito, numeroMesa]);
 
-  const totalMesa = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+  const handleEnviarCocina = async () => {
+    const pendientes = carrito.filter(p => p.estado === 'pendiente');
+    if (pendientes.length === 0) return;
+    const maxRonda = Math.max(0, ...carrito.map(p => p.ronda || 0));
+    const nuevaRonda = maxRonda + 1;
+    try {
+      // Persiste cantidades/notas antes de que el backend congele la ronda.
+      await mesaCuentasApi.upsert(numeroMesa, { items: carrito, nombreCliente: nombreMesa });
+      const cuenta = await mesaCuentasApi.transicionarItems(numeroMesa, {
+        accion: 'enviar',
+        uids: pendientes.map((p) => p.uid),
+        ronda: nuevaRonda,
+      });
+      setCarrito(normalizarCarga(cuenta.items));
+    } catch (error) {
+      alert(error.message || 'No se pudo enviar la ronda a cocina');
+    }
+  };
+
+  const handleCambiarEstado = async (uid, accion) => {
+    try {
+      const cuenta = await mesaCuentasApi.transicionarItems(numeroMesa, { accion, uids: [uid] });
+      setCarrito(normalizarCarga(cuenta.items));
+    } catch (error) {
+      alert(error.message || 'No se pudo actualizar el ítem');
+    }
+  };
+
+  const totalMesa = carrito.filter(i => i.estado !== 'cancelado').reduce((sum, item) => sum + item.precio * item.cantidad, 0);
 
   const cantidadesCarrito = useMemo(
-    () => Object.fromEntries(carrito.map((item) => [item.id, item.cantidad])),
+    () => carrito.reduce((totales, item) => {
+      if (item.estado !== 'cancelado') {
+        totales[item.id] = (totales[item.id] || 0) + item.cantidad;
+      }
+      return totales;
+    }, {}),
     [carrito]
   );
 
@@ -77,11 +126,11 @@ export function VentaMesa({
     }
 
     setCarrito((prev) => {
-      const existente = prev.find((p) => p.id === producto.id);
+      const existente = prev.find((p) => p.id === producto.id && p.estado === 'pendiente');
       if (existente) {
         return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: p.cantidad + 1 } : p));
       }
-      return [...prev, { ...producto, cantidad: 1 }];
+      return [...prev, { ...producto, cantidad: 1, estado: 'pendiente', uid: crypto.randomUUID(), ronda: null, observaciones: '' }];
     });
   };
 
@@ -108,30 +157,36 @@ export function VentaMesa({
     onScan: handleScanCodBarra,
   });
 
-  const aumentarCantidad = (id) => {
+  const aumentarCantidad = (uid, id) => {
     const productoActual = productos.find((p) => p.id === id);
-    const itemCarrito = carrito.find((p) => p.id === id);
+    const itemCarrito = carrito.find((p) => p.uid === uid);
     const validacion = validarCantidadStock(productoActual, (itemCarrito?.cantidad ?? 0) + 1);
     if (!validacion.ok) {
       alert(validacion.mensaje);
       return;
     }
 
-    setCarrito((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: p.cantidad + 1 } : p)));
+    setCarrito((prev) => prev.map((p) => (p.uid === uid ? { ...p, cantidad: p.cantidad + 1 } : p)));
   };
 
-  const disminuirCantidad = (id) => {
+  const disminuirCantidad = (uid) => {
     setCarrito((prev) => {
-      const producto = prev.find((p) => p.id === id);
+      const producto = prev.find((p) => p.uid === uid);
       if (producto && producto.cantidad > 1) {
-        return prev.map((p) => (p.id === id ? { ...p, cantidad: p.cantidad - 1 } : p));
+        return prev.map((p) => (p.uid === uid ? { ...p, cantidad: p.cantidad - 1 } : p));
       }
-      return prev.filter((p) => p.id !== id);
+      return prev.filter((p) => p.uid !== uid);
     });
   };
 
-  const eliminarProducto = (id) => {
-    setCarrito((prev) => prev.filter((p) => p.id !== id));
+  const eliminarProducto = (uid) => {
+    setCarrito((prev) => prev.filter((p) => p.uid !== uid));
+  };
+
+  const actualizarObservaciones = (uid, observaciones) => {
+    setCarrito((prev) => prev.map((p) =>
+      p.uid === uid && p.estado === 'pendiente' ? { ...p, observaciones } : p
+    ));
   };
 
   const handleCerrarMesa = () => {
@@ -139,8 +194,14 @@ export function VentaMesa({
       alert('No hay productos para cobrar');
       return;
     }
+    const noTerminados = carrito.filter(p => !['entregado', 'cancelado'].includes(p.estado));
+    if (noTerminados.length > 0) {
+      alert('Hay ítems que aún no fueron entregados por cocina. No se puede cobrar.');
+      return;
+    }
     setShowCerrarMesaModal(true);
   };
+
 
   const handleConfirmarCerrarMesa = async ({
     descuento,
@@ -149,7 +210,8 @@ export function VentaMesa({
     totalACobrar,
     clienteId,
   }) => {
-    const validacionCarrito = validarCarritoStock(productos, carrito);
+    const itemsCobrables = carrito.filter((p) => p.estado !== 'cancelado');
+    const validacionCarrito = validarCarritoStock(productos, itemsCobrables);
     if (!validacionCarrito.ok) {
       alert(validacionCarrito.mensaje);
       return;
@@ -161,7 +223,7 @@ export function VentaMesa({
       total: totalACobrar,
       descuento,
       metodoPago: metodoPagoPrincipal || 'Efectivo',
-      items: carrito.map((p) => ({
+      items: itemsCobrables.map((p) => ({
         productoId: p.id,
         nombreProducto: p.nombre,
         precio: p.precio,
@@ -266,23 +328,36 @@ export function VentaMesa({
                     (productoActual ? stockDisponible(productoActual) : 0) <= producto.cantidad;
 
                   return (
-                  <div key={producto.id} className="bg-zinc-800 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div key={producto.uid || producto.id} className={`bg-zinc-800 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${producto.estado === 'cancelado' ? 'opacity-50' : ''}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{producto.nombre}</p>
+                      <p className="font-medium truncate">{producto.nombre} {producto.estado !== 'pendiente' && `(${producto.estado.toUpperCase()})`}</p>
                       <p className="text-sm text-zinc-400">{producto.categoria}</p>
+                      {producto.ronda && <p className="text-xs text-blue-400">Ronda {producto.ronda}</p>}
+                      {producto.estado === 'pendiente' ? (
+                        <input
+                          value={producto.observaciones || ''}
+                          onChange={(e) => actualizarObservaciones(producto.uid, e.target.value)}
+                          placeholder="Observaciones para cocina"
+                          maxLength={300}
+                          className="mt-2 w-full max-w-md bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                        />
+                      ) : producto.observaciones ? (
+                        <p className="mt-1 text-xs text-yellow-400">Nota: {producto.observaciones}</p>
+                      ) : null}
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                       <div className="flex items-center gap-2 bg-zinc-700 rounded-lg shrink-0">
                         <button
-                          onClick={() => disminuirCantidad(producto.id)}
-                          className="p-2 hover:bg-zinc-600 rounded-l-lg transition-colors"
+                          onClick={() => disminuirCantidad(producto.uid)}
+                          disabled={producto.estado !== 'pendiente'}
+                          className="p-2 hover:bg-zinc-600 rounded-l-lg transition-colors disabled:opacity-40"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <span className="px-3 min-w-[2rem] text-center">{producto.cantidad}</span>
                         <button
-                          onClick={() => aumentarCantidad(producto.id)}
-                          disabled={alMaximoStock}
+                          onClick={() => aumentarCantidad(producto.uid, producto.id)}
+                          disabled={alMaximoStock || producto.estado !== 'pendiente'}
                           className="p-2 hover:bg-zinc-600 rounded-r-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-4 h-4" />
@@ -291,15 +366,34 @@ export function VentaMesa({
                       <p className="text-red-500 font-medium w-24 text-right">
                         ${(producto.precio * producto.cantidad).toLocaleString()}
                       </p>
-                      <button
-                        onClick={() => eliminarProducto(producto.id)}
-                        className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-red-500"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {producto.estado === 'pendiente' ? (
+                        <button
+                          onClick={() => eliminarProducto(producto.uid)}
+                          className="p-2 hover:bg-red-600/20 rounded-lg transition-colors text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : producto.estado !== 'cancelado' ? (
+                        <button
+                          onClick={() => handleCambiarEstado(producto.uid, 'cancelar')}
+                          title="Cancelar ítem"
+                          className="p-2 hover:bg-orange-600/20 rounded-lg transition-colors text-orange-500"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      ) : null}
+                      {producto.estado === 'listo' && (
+                        <button
+                          onClick={() => handleCambiarEstado(producto.uid, 'entregar')}
+                          title="Marcar como entregado"
+                          className="px-3 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-medium"
+                        >
+                          Entregar
+                        </button>
+                      )}
                     </div>
                   </div>
-                  );
+);
                 })}
               </div>
             )}
@@ -310,6 +404,15 @@ export function VentaMesa({
               <p className="text-zinc-400 text-sm mb-2">Total Mesa</p>
               <p className="text-3xl sm:text-4xl font-bold text-red-500">${totalMesa.toLocaleString()}</p>
             </div>
+
+            <button
+              onClick={handleEnviarCocina}
+              disabled={!carrito.some((item) => item.estado === 'pendiente')}
+              className="w-full bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg p-4 flex items-center justify-center gap-2"
+            >
+              <Send className="w-5 h-5" />
+              Enviar ronda a cocina
+            </button>
 
             <button
               onClick={handleImprimirPreCobro}
@@ -347,7 +450,7 @@ export function VentaMesa({
           totalVenta={totalMesa}
           onConfirmar={handleConfirmarCerrarMesa}
           metodosPago={metodosPago}
-          items={carrito}
+          items={carrito.filter((p) => p.estado !== 'cancelado')}
           tipo="mesa"
           numeroMesa={numeroMesa}
         />
@@ -364,7 +467,7 @@ export function VentaMesa({
       <div className="hidden" aria-hidden="true">
         <div ref={ticketPreCobroRef}>
           <TicketCobro
-            items={carrito.map((p) => ({
+            items={carrito.filter((p) => p.estado !== 'cancelado').map((p) => ({
               nombre: p.nombre,
               precio: p.precio,
               cantidad: p.cantidad,

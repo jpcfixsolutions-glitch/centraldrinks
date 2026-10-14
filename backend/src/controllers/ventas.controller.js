@@ -54,7 +54,7 @@ export async function crear(req, res) {
       cierreCajaId: venta.cierreCajaId,
     });
   } catch (err) {
-    if (err.status === 400 || err.status === 404) {
+    if ([400, 404, 409].includes(err.status)) {
       return res.status(err.status).json({ error: err.message });
     }
     throw err;

@@ -12,6 +12,7 @@ router.use((_req, res, next) => {
   next();
 });
 router.get('/', asyncHandler(ctrl.listar));
+router.patch('/:numeroMesa/items', requireMesaSyncVersion, asyncHandler(ctrl.transicionarItems));
 router.put('/:numeroMesa', requireMesaSyncVersion, asyncHandler(ctrl.upsert));
 router.delete('/:numeroMesa', requireMesaSyncVersion, asyncHandler(ctrl.eliminar));
 

@@ -25,6 +25,7 @@ const productoSchema = z.object({
   stockMinimo: z.number().int().nonnegative().optional(),
   codbarra: codbarraSchema,
   imagen: z.string().url().nullable().optional(),
+  activo: z.boolean().optional(),
   componentes: z.array(componenteSchema).optional(),
 });
 

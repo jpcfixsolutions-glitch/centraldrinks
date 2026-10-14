@@ -24,8 +24,8 @@ function toPublic(row) {
   };
 }
 
-async function setEstadoMesa(sucursalId, numeroMesa, estado) {
-  await db
+async function setEstadoMesa(sucursalId, numeroMesa, estado, executor = db) {
+  await executor
     .update(mesas)
     .set({ estado })
     .where(and(eq(mesas.numero, numeroMesa), eq(mesas.sucursalId, sucursalId)));
@@ -77,10 +77,30 @@ export async function upsert(sucursalId, numeroMesa, { items, nombreCliente }) {
     throw error;
   }
 
+  const [existente] = await db
+    .select({ itemsJson: mesaCuentas.itemsJson })
+    .from(mesaCuentas)
+    .where(and(eq(mesaCuentas.sucursalId, sedeId), eq(mesaCuentas.numeroMesa, numeroMesa)))
+    .limit(1);
+
+  // El estado operativo de los ítems enviados pertenece al backend. Un PUT
+  // atrasado sólo puede editar/eliminar pendientes y agregar pendientes nuevos.
+  const actuales = parseItems(existente?.itemsJson);
+  const entrantesPorUid = new Map(itemsArr.filter((i) => i.uid).map((i) => [i.uid, i]));
+  const protegidos = actuales.filter((i) => i.uid && i.estado && i.estado !== 'pendiente');
+  const protegidosUids = new Set(protegidos.map((i) => i.uid));
+  const itemsSeguros = [
+    ...itemsArr.filter((i) => !i.uid || !protegidosUids.has(i.uid)),
+    ...protegidos.map((actual) => {
+      const entrante = entrantesPorUid.get(actual.uid);
+      return entrante ? { ...entrante, ...actual } : actual;
+    }),
+  ];
+
   const now = new Date().toISOString();
   const payload = {
     nombreCliente: nombre || null,
-    itemsJson: JSON.stringify(itemsArr),
+    itemsJson: JSON.stringify(itemsSeguros),
     updatedAt: now,
   };
 
@@ -101,15 +121,81 @@ export async function upsert(sucursalId, numeroMesa, { items, nombreCliente }) {
   return toPublic(fila);
 }
 
-export async function eliminar(sucursalId, numeroMesa) {
+export async function obtenerPorMesa(sucursalId, numeroMesa, executor = db) {
+  const sedeId = exigirSucursalId(sucursalId);
+  const [fila] = await executor
+    .select()
+    .from(mesaCuentas)
+    .where(and(eq(mesaCuentas.numeroMesa, numeroMesa), eq(mesaCuentas.sucursalId, sedeId)))
+    .limit(1);
+  return fila ? toPublic(fila) : null;
+}
+
+const TRANSICIONES = {
+  enviar: { desde: ['pendiente'], hacia: 'enviado' },
+  recibir: { desde: ['enviado'], hacia: 'enviado' },
+  listo: { desde: ['enviado'], hacia: 'listo' },
+  entregar: { desde: ['listo'], hacia: 'entregado' },
+  cancelar: { desde: ['enviado', 'listo'], hacia: 'cancelado' },
+};
+
+export async function transicionarItems(sucursalId, numeroMesa, { accion, uids, ronda }) {
+  const sedeId = exigirSucursalId(sucursalId);
+  return db.transaction(async (tx) => {
+    const cuenta = await obtenerPorMesa(sedeId, numeroMesa, tx);
+    if (!cuenta) {
+      const error = new Error('La comanda no existe');
+      error.status = 404;
+      throw error;
+    }
+
+    const regla = TRANSICIONES[accion];
+    const seleccionados = new Set(uids || []);
+    const ahora = new Date().toISOString();
+    let modificados = 0;
+    const items = cuenta.items.map((item) => {
+      const coincide = seleccionados.has(item.uid) || (ronda != null && item.ronda === ronda);
+      if (!coincide) return item;
+      if (!regla.desde.includes(item.estado)) {
+        if (ronda != null && !seleccionados.has(item.uid)) return item;
+        const error = new Error(`Transición inválida desde ${item.estado || 'sin estado'}`);
+        error.status = 409;
+        throw error;
+      }
+      modificados += 1;
+      if (accion === 'recibir') return { ...item, recibidoCocina: true, fecha_recepcion: ahora };
+      return {
+        ...item,
+        estado: regla.hacia,
+        ...(accion === 'enviar' ? { ronda, fecha_envio: ahora } : {}),
+        ...(accion === 'listo' ? { recibidoCocina: true, fecha_listo: ahora } : {}),
+      };
+    });
+
+    if (modificados === 0) {
+      const error = new Error('No se encontraron ítems para actualizar');
+      error.status = 404;
+      throw error;
+    }
+
+    const [actualizada] = await tx
+      .update(mesaCuentas)
+      .set({ itemsJson: JSON.stringify(items), updatedAt: ahora })
+      .where(and(eq(mesaCuentas.numeroMesa, numeroMesa), eq(mesaCuentas.sucursalId, sedeId)))
+      .returning();
+    return toPublic(actualizada);
+  });
+}
+
+export async function eliminar(sucursalId, numeroMesa, executor = db) {
   const sedeId = exigirSucursalId(sucursalId);
   const condiciones = [
     eq(mesaCuentas.numeroMesa, numeroMesa),
     eq(mesaCuentas.sucursalId, sedeId),
   ];
 
-  const [borrada] = await db.delete(mesaCuentas).where(and(...condiciones)).returning();
-  await setEstadoMesa(sedeId, numeroMesa, 'libre');
+  const [borrada] = await executor.delete(mesaCuentas).where(and(...condiciones)).returning();
+  await setEstadoMesa(sedeId, numeroMesa, 'libre', executor);
   return borrada
     ? toPublic({ ...borrada, itemsJson: '[]' })
     : { numeroMesa, items: [], nombreCliente: '' };

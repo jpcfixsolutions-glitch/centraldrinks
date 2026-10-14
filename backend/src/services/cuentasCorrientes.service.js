@@ -140,9 +140,14 @@ export async function registrarCargo({
   items,
   sucursalId,
   usuarioId,
+  executor = db,
 }) {
   const sedeId = exigirSucursalId(sucursalId);
-  const cliente = await clientesService.buscarPorId(clienteId, sedeId);
+  const [cliente] = await executor
+    .select({ id: clientes.id })
+    .from(clientes)
+    .where(and(eq(clientes.id, clienteId), eq(clientes.sucursalId, sedeId)))
+    .limit(1);
   if (!cliente) {
     const err = new Error('Cliente no encontrado');
     err.status = 404;
@@ -157,7 +162,7 @@ export async function registrarCargo({
     })),
   });
 
-  const [mov] = await db
+  const [mov] = await executor
     .insert(cuentaMovimientos)
     .values({
       clienteId,

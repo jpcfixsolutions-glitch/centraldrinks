@@ -9,6 +9,8 @@ import { BannerVencimiento } from './components/BannerVencimiento.jsx';
 import { VentaMostrador } from './components/VentaMostrador.jsx';
 import { GestionStock } from './components/GestionStock.jsx';
 import { VentaMesa } from './components/VentaMesa.jsx';
+import { CocinaView } from './components/CocinaView.jsx';
+import { CartaView } from './components/CartaView.jsx';
 import { GestionMesas } from './components/GestionMesas.jsx';
 import { Configuracion } from './components/Configuracion.jsx';
 import { ConsultaCajas } from './components/ConsultaCajas.jsx';
@@ -619,6 +621,18 @@ export default function App() {
           onEliminarProducto={store.eliminarProducto}
         />
     );
+  } else if (vistaActual === 'carta') {
+    contenido = (
+      <CartaView
+        onVolver={() => setVistaActual('home')}
+        categorias={store.categorias}
+        productos={store.productos}
+        esAdministrador={esAdministrador}
+        onCrearProducto={store.crearProducto}
+        onActualizarProducto={store.actualizarProducto}
+        onEliminarProducto={store.eliminarProducto}
+      />
+    );
   } else if (vistaActual === 'mesas') {
     contenido = (
       <div className="flex-1 relative flex">
@@ -716,6 +730,14 @@ export default function App() {
           metodosPago={store.metodosPago}
           mesasPendientes={mesasPendientes}
         />
+    );
+
+  } else if (vistaActual === 'cocina') {
+    contenido = (
+      <CocinaView
+        onVolver={() => setVistaActual('home')}
+        sucursalId={sucursalId}
+      />
     );
   } else if (vistaActual === 'stats') {
     contenido = (

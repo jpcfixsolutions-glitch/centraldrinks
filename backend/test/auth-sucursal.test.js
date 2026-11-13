@@ -47,11 +47,12 @@ before(async () => {
       (1, 'roma@club22roma', 'hash', 'Roma', 'administrador', 1, 2),
       (2, 'sin-sede', 'hash', 'Sin sede', 'administrador', 1, NULL),
       (3, 'tadeo@club22yofre', 'hash', 'Tadeo', 'administrador', 1, NULL),
-      (4, 'no-mover@club22roma', 'hash', 'No mover', 'administrador', 1, 1);
+      (4, 'no-mover@club22roma', 'hash', 'No mover', 'administrador', 1, 1),
+      (5, 'creador', 'hash', 'Creador', 'creador', 1, NULL);
     INSERT INTO suscripciones (id) VALUES (1);
   `);
   await client.execute({
-    sql: 'UPDATE usuarios SET password_hash = ? WHERE id = 1',
+    sql: 'UPDATE usuarios SET password_hash = ? WHERE id IN (1, 5)',
     args: [await hashPassword('clave-de-prueba')],
   });
 });
@@ -137,7 +138,7 @@ test('el dominio no puede mover un usuario que ya tiene una sede válida', async
   assert.equal(Number(fila.rows[0].sucursal_id), 1);
 });
 
-test('el administrador inicia sesión y restaura su sesión con la suscripción vencida', async () => {
+test('la autenticación informa el vencimiento al iniciar y restaurar una sesión operativa', async () => {
   const fechaVencida = '2020-01-01T23:59:59.999Z';
   await client.execute({
     sql: 'UPDATE suscripciones SET fecha_vencimiento = ? WHERE id = 1',
@@ -158,6 +159,26 @@ test('el administrador inicia sesión y restaura su sesión con la suscripción 
 
     const fila = await client.execute('SELECT fecha_vencimiento FROM suscripciones WHERE id = 1');
     assert.equal(fila.rows[0].fecha_vencimiento, fechaVencida);
+  } finally {
+    await client.execute("UPDATE suscripciones SET fecha_vencimiento = '2099-12-31' WHERE id = 1");
+  }
+});
+
+test('el creador inicia y restaura su sesión sin sede y con la suscripción vencida', async () => {
+  await client.execute("UPDATE suscripciones SET fecha_vencimiento = '2020-01-01T23:59:59.999Z' WHERE id = 1");
+
+  try {
+    const result = await authService.login('creador', 'clave-de-prueba');
+    assert.ok(result.token);
+    assert.equal(result.user.rol, 'creador');
+    assert.equal(result.user.sucursalId, null);
+    assert.equal(result.user.suscripcion.estado, 'expirada');
+
+    const { req } = await autenticar(result.token);
+    const user = await authService.me(req.user.sub);
+    assert.equal(user.rol, 'creador');
+    assert.equal(user.sucursalId, null);
+    assert.equal(user.suscripcion.estado, 'expirada');
   } finally {
     await client.execute("UPDATE suscripciones SET fecha_vencimiento = '2099-12-31' WHERE id = 1");
   }

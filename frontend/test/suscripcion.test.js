@@ -77,9 +77,13 @@ function renderizar(rol, estado) {
   return renderToStaticMarkup(createElement(App));
 }
 
-test('el administrador accede a la app aunque la suscripción esté vencida', () => {
-  const html = renderizar('administrador', 'expirada');
-  assert.equal(html.includes('Suscripción Expirada'), false);
+test('el administrador queda bloqueado cuando la suscripción está vencida', () => {
+  assert.match(renderizar('administrador', 'expirada'), /Suscripción Expirada/);
+});
+
+test('el administrador puede acceder con una suscripción activa', () => {
+  const html = renderizar('administrador', 'activa');
+  assert.doesNotMatch(html, /Suscripción Expirada/);
   assert.match(html, /title="Configuración"/);
   assert.match(html, /Yofre/);
 });

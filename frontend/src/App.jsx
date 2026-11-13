@@ -506,10 +506,8 @@ export default function App() {
   }
 
   // ── Estado de suscripción ────────────────────────────────────────────────
-  const esAdministrador = usuarioActual.rol === 'administrador';
   const suscripcion = usuarioActual.suscripcion ?? null;
-  // El administrador debe conservar acceso aun cuando venza la suscripción.
-  const suscripcionExpirada = !esAdministrador && suscripcion?.estado === 'expirada';
+  const suscripcionExpirada = suscripcion?.estado === 'expirada';
   const suscripcionPorVencer = suscripcion?.estado === 'por_vencer';
 
   if (store.loading) {
@@ -540,6 +538,7 @@ export default function App() {
     );
   }
 
+  const esAdministrador = usuarioActual.rol === 'administrador';
   const puedeAccederStock = esAdministrador;
   const puedeAccederCajas = esAdministrador;
   const puedeAccederConfiguracion = esAdministrador;

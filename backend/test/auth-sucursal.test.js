@@ -11,6 +11,7 @@ process.env.JWT_SECRET = 'secreto-de-prueba-aislamiento';
 
 const { client } = await import('../src/services/db.js');
 const { signToken } = await import('../src/services/jwt.js');
+const { hashPassword } = await import('../src/services/hash.js');
 const { requireAuth, requireSucursal } = await import('../src/middleware/auth.js');
 const authService = await import('../src/services/auth.service.js');
 
@@ -49,6 +50,10 @@ before(async () => {
       (4, 'no-mover@club22roma', 'hash', 'No mover', 'administrador', 1, 1);
     INSERT INTO suscripciones (id) VALUES (1);
   `);
+  await client.execute({
+    sql: 'UPDATE usuarios SET password_hash = ? WHERE id = 1',
+    args: [await hashPassword('clave-de-prueba')],
+  });
 });
 
 after(() => {
@@ -130,4 +135,30 @@ test('el dominio no puede mover un usuario que ya tiene una sede válida', async
 
   const fila = await client.execute('SELECT sucursal_id FROM usuarios WHERE id = 4');
   assert.equal(Number(fila.rows[0].sucursal_id), 1);
+});
+
+test('el administrador inicia sesión y restaura su sesión con la suscripción vencida', async () => {
+  const fechaVencida = '2020-01-01T23:59:59.999Z';
+  await client.execute({
+    sql: 'UPDATE suscripciones SET fecha_vencimiento = ? WHERE id = 1',
+    args: [fechaVencida],
+  });
+
+  try {
+    const result = await authService.login('roma@club22roma', 'clave-de-prueba');
+    assert.ok(result.token);
+    assert.equal(result.user.rol, 'administrador');
+    assert.equal(result.user.suscripcion.estado, 'expirada');
+
+    const { req } = await autenticar(result.token);
+    const user = await authService.me(req.user.sub);
+    assert.equal(user.rol, 'administrador');
+    assert.equal(user.sucursalId, 2);
+    assert.equal(user.suscripcion.estado, 'expirada');
+
+    const fila = await client.execute('SELECT fecha_vencimiento FROM suscripciones WHERE id = 1');
+    assert.equal(fila.rows[0].fecha_vencimiento, fechaVencida);
+  } finally {
+    await client.execute("UPDATE suscripciones SET fecha_vencimiento = '2099-12-31' WHERE id = 1");
+  }
 });
